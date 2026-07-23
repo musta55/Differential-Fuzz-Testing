@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.fuzztest</groupId>
+  <artifactId>differential-first-tester</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <!--
+    Differential "first tester": fuzz an LLM-refactored method against its original on the
+    SAME Jazzer inputs and report where they diverge. The BASE build carries only the engine's
+    own dependencies (Jazzer, JUnit 5, gson, JaCoCo). Everything a target project needs to
+    compile/run lives in that project's <profile> — so `mvn -P<project>` compiles only that
+    project, and adding a project never touches the base. See README.md.
+  -->
+
+  <properties>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <jazzer.version>0.22.0</jazzer.version>
+    <junit.version>5.9.3</junit.version>
+  </properties>
+
+  <dependencies>
+    <!-- gson: GenericDifferential reads the per-project manifest.json at fuzz time -->
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <version>2.10.1</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Jazzer JUnit 5 integration (the fuzzing engine) -->
+    <dependency>
+      <groupId>com.code-intelligence</groupId>
+      <artifactId>jazzer-junit</artifactId>
+      <version>${jazzer.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- JUnit 5 -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- SLF4J: many refactored snapshots log; keep a binding on the classpath so they load -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.36</version>
+    </dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.2.12</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <!-- 2.22+ required for JUnit 5 Platform support -->
+        <version>2.22.2</version>
+        <configuration>
+          <!-- Jazzer instruments bytecode at load time. JAZZER_FUZZ=1 activates fuzzing;
+               without it, only the corpus seeds replay. @{argLine} is filled by jacoco. -->
+          <argLine>@{argLine} -XX:+IgnoreUnrecognizedVMOptions</argLine>
+          <!-- Sandbox the test JVM cwd: fuzzed args passed to file-I/O create files in cwd;
+               keep that litter inside target/ (git-ignored) instead of the module root. -->
+          <workingDirectory>${project.build.directory}/fuzz-cwd</workingDirectory>
+          <includes>
+            <include>fuzz/auto/*FuzzTest.java</include>
+          </includes>
+        </configuration>
+      </plugin>
+
+      <!-- JaCoCo: per-method branch coverage (writes target/jacoco.exec; analyzed by
+           scripts/CovReport against target/test-classes). -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.11</version>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals><goal>prepare-agent</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <!--
+    ONE PROFILE PER TARGET PROJECT. Activate with -P<project> so only that project's
+    generated sources compile, with its own dependencies. To add your own project, copy the
+    apex-core profile: change the id, list your project's dependencies, and point the two
+    add-test-source paths at src/test/Dataset/<project> and src/test/fuzzing/<project>.
+  -->
+  <profiles>
+    <profile>
+      <id>apex-core</id>
+      <!--
+        apex-core's snapshots reference other Apache Apex classes, so those must be on the
+        classpath. This profile depends on locally-installed apex jars produced by
+        `scripts/setup_deps.sh <path-to-built-apex-core>` (groupId org.apache.apex.local).
+        Alternative: swap these four for Maven Central `org.apache.apex:apex-*:3.7.0`.
+      -->
+      <dependencies>
+        <dependency>
+          <groupId>com.datatorrent</groupId>
+          <artifactId>netlet</artifactId>
+          <version>1.3.2</version>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.apex.local</groupId>
+          <artifactId>apex-api</artifactId>
+          <version>3.7.0-local</version>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.apex.local</groupId>
+          <artifactId>apex-common</artifactId>
+          <version>3.7.0-local</version>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.apex.local</groupId>
+          <artifactId>apex-bufferserver</artifactId>
+          <version>3.7.0-local</version>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.apex.local</groupId>
+          <artifactId>apex-engine</artifactId>
+          <version>3.7.0-local</version>
+        </dependency>
+
+        <!-- Third-party libs the apex snapshots reference (compile + runtime). -->
+        <dependency>
+          <groupId>org.apache.xbean</groupId>
+          <artifactId>xbean-asm5-shaded</artifactId>
+          <version>4.3</version>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>com.esotericsoftware.kryo</groupId>
+          <artifactId>kryo</artifactId>
+          <version>2.24.0</version>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>com.google.code.findbugs</groupId>
+          <artifactId>jsr305</artifactId>
+          <version>1.3.9</version>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>com.sun.jersey</groupId>
+          <artifactId>jersey-client</artifactId>
+          <version>1.9</version>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.httpcomponents</groupId>
+          <artifactId>httpclient</artifactId>
+          <version>4.5.3</version>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-annotations</artifactId>
+          <version>2.6.0</version>
+          <scope>test</scope>
+          <exclusions>
+            <!-- jdk.tools = $JAVA_HOME/../lib/tools.jar, only exists on JDK 8. Unused. -->
+            <exclusion>
+              <groupId>jdk.tools</groupId>
+              <artifactId>jdk.tools</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+        <dependency>
+          <groupId>org.codehaus.jettison</groupId>
+          <artifactId>jettison</artifactId>
+          <version>1.5.4</version>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>commons-beanutils</groupId>
+          <artifactId>commons-beanutils</artifactId>
+          <version>1.9.2</version>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+          <version>19.0</version>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>commons-lang</groupId>
+          <artifactId>commons-lang</artifactId>
+          <version>2.6</version>
+          <scope>test</scope>
+        </dependency>
+      </dependencies>
+      <build><plugins>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>build-helper-maven-plugin</artifactId>
+          <version>3.2.0</version>
+          <executions><execution>
+            <id>add-apex-core</id>
+            <phase>generate-test-sources</phase>
+            <goals><goal>add-test-source</goal></goals>
+            <configuration><sources>
+              <source>src/test/Dataset/apex-core</source>
+              <source>src/test/fuzzing/apex-core</source>
+            </sources></configuration>
+          </execution></executions>
+        </plugin>
+      </plugins></build>
+    </profile>
+  </profiles>
+</project>
