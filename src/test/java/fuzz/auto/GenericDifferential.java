@@ -45,6 +45,13 @@ public final class GenericDifferential
     Spec s = spec(project, id);
     Class<?> oCls = Class.forName(s.original);
     Class<?> rCls = Class.forName(s.refactored);
+
+    // A changed constructor is tested directly: build the same args once, invoke both, compare.
+    if (s.isCtor) {
+      runCtor(data, s, oCls, rCls);
+      return;
+    }
+
     Method oM = method(oCls, s.method, s.paramTypes);
     Method rM = method(rCls, s.method, s.paramTypes);
     oM.setAccessible(true);
@@ -97,6 +104,7 @@ public final class GenericDifferential
     String method;
     Class<?>[] paramTypes;
     boolean isStatic;
+    boolean isCtor;
   }
 
   private static synchronized Spec spec(String project, String id) throws Exception
@@ -117,6 +125,7 @@ public final class GenericDifferential
           sp.refactored = m.get("refactored").getAsString();
           sp.method = m.get("method").getAsString();
           sp.isStatic = m.get("static").getAsBoolean();
+          sp.isCtor = m.has("ctor") && m.get("ctor").getAsBoolean();
           JsonArray ps = m.getAsJsonArray("params");
           Class<?>[] pts = new Class<?>[ps.size()];
           for (int j = 0; j < ps.size(); j++) {
@@ -220,6 +229,63 @@ public final class GenericDifferential
     }
   }
 
+  // ── constructor differential (a changed ctor is a first-class test unit) ─────
+
+  /**
+   * Test a changed constructor directly: build the manifest-typed args once, invoke both the
+   * Original and Refactored constructor on identical args, and compare outcomes. DIVERGENT iff
+   * their exception types differ (one throwing while the other returns counts). Object state is
+   * NOT compared — the oracle is deliberately shallow, same as for methods.
+   */
+  private static void runCtor(FuzzedDataProvider data, Spec s, Class<?> oCls, Class<?> rCls)
+      throws Throwable
+  {
+    java.lang.reflect.Constructor<?> oc;
+    java.lang.reflect.Constructor<?> rc;
+    try {
+      oc = oCls.getDeclaredConstructor(s.paramTypes);
+      rc = rCls.getDeclaredConstructor(s.paramTypes);
+    } catch (NoSuchMethodException e) {
+      System.out.println("[SKIP] constructor not found " + s.original + " "
+          + Arrays.toString(s.paramTypes));
+      throw e;
+    }
+    oc.setAccessible(true);
+    rc.setAccessible(true);
+    Object[] base = buildArgs(data, s.paramTypes);
+    Outcome o = newInstanceOutcome(oc, copy(base));
+    Outcome r = newInstanceOutcome(rc, copy(base));
+    if (!ctorEquivalent(o, r)) {
+      failCtor(oCls.getSimpleName(), s.paramTypes, base, o, r);
+    }
+  }
+
+  private static Outcome newInstanceOutcome(java.lang.reflect.Constructor<?> c, Object[] args)
+  {
+    try {
+      return new Outcome(c.newInstance(args), null);
+    } catch (InvocationTargetException e) {
+      Throwable cause = e.getCause() != null ? e.getCause() : e;
+      return new Outcome(null, cause.getClass().getSimpleName());
+    } catch (Throwable t) {
+      return new Outcome(null, t.getClass().getSimpleName());
+    }
+  }
+
+  /** Constructors diverge iff their exception types differ (one throwing vs returning counts). */
+  private static boolean ctorEquivalent(Outcome o, Outcome r)
+  {
+    return Objects.equals(o.exception, r.exception);
+  }
+
+  private static void failCtor(String simpleName, Class<?>[] pts, Object[] cargs, Outcome o, Outcome r)
+  {
+    Assertions.fail(String.format(
+        "[DIFFERENTIAL MISMATCH] %s.<init>%s%n  ctorArgs  : %s%n  methodArgs: %s%n"
+        + "  original  : %s%n  refactored: %s",
+        simpleName, Arrays.toString(pts), render(cargs), render(cargs), o, r));
+  }
+
   /**
    * Build matching receiver instances for original + refactored, sharing the SAME fuzzer-built
    * constructor arguments. Prefers a no-arg ctor, else the smallest ctor whose params are all
@@ -268,13 +334,19 @@ public final class GenericDifferential
       }
       oc.setAccessible(true);
       rc.setAccessible(true);
-      try {
-        Object o = oc.newInstance(copy(cargs));
-        Object r = rc.newInstance(copy(cargs));
-        return new Object[]{o, r, render(cargs)};
-      } catch (Throwable t) {
-        return null; // ctor exists + buildable but rejected this input — try another input
+      Outcome oOut = newInstanceOutcome(oc, copy(cargs));
+      Outcome rOut = newInstanceOutcome(rc, copy(cargs));
+      if (!ctorEquivalent(oOut, rOut)) {
+        // A1: the two constructors disagree on THIS input (one throws, or throws a different
+        // type) — a real divergence in how the class is built. This used to be silently
+        // swallowed as "input rejected", which turned an instance method whose ctor was
+        // refactored to throw into a false EQUIVALENT (the method was never even invoked).
+        failCtor(oCls.getSimpleName(), pts, cargs, oOut, rOut);
       }
+      if (oOut.threw()) {
+        return null; // both rejected this input the same way — let Jazzer try another input
+      }
+      return new Object[]{oOut.value, rOut.value, render(cargs)};
     }
     throw new CannotConstruct("no buildable constructor");
   }

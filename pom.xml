@@ -234,5 +234,27 @@
         </plugin>
       </plugins></build>
     </profile>
+
+    <profile>
+      <!-- Self-contained smoke test (no external deps): the issue-reproduction Simple.java,
+           exercising constructor diffs, boxed-type params, and secondary-class relocation. -->
+      <id>example</id>
+      <build><plugins>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>build-helper-maven-plugin</artifactId>
+          <version>3.2.0</version>
+          <executions><execution>
+            <id>add-example</id>
+            <phase>generate-test-sources</phase>
+            <goals><goal>add-test-source</goal></goals>
+            <configuration><sources>
+              <source>src/test/Dataset/example</source>
+              <source>src/test/fuzzing/example</source>
+            </sources></configuration>
+          </execution></executions>
+        </plugin>
+      </plugins></build>
+    </profile>
   </profiles>
 </project>

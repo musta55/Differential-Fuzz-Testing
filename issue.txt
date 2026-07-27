@@ -1,0 +1,84 @@
+1) Lack of support for many methods, in practice.
+
+I tried running the tool on a simple example:
+
+example/original/example/Simple.java:
+package example;
+
+public class Simple {
+
+    Simple() {
+        return;
+    }
+
+    void foo(String x) {
+        return;
+    }
+
+    void bar(Integer foo) {
+        return;
+    }
+}
+example/refactored/example/Simple.java:
+package example;
+
+public class Simple {
+
+    Simple() {
+        throw new java.lang.Error();
+    }
+
+    void foo(String x) {
+        throw new java.lang.Error();
+    }
+
+    void bar(Integer foo) {
+        throw new java.lang.Error();
+    }
+}
+The build profile in pom.xml:
+<profiles>
+  <profile>
+    <id>example</id>
+    <build><plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.2.0</version>
+        <executions><execution>
+          <id>example</id>
+          <phase>generate-test-sources</phase>
+          <goals><goal>add-test-source</goal></goals>
+          <configuration><sources>
+            <source>src/test/Dataset/example</source>
+            <source>src/test/fuzzing/example</source>
+          </sources></configuration>
+        </execution></executions>
+      </plugin>
+    </plugins></build>
+  </profile>
+</profiles>
+run cmd: python3 run.py example --original example/original --refactored example/refactored
+
+I thought that the differential tester would mark all three as divergent, since all refactored methods throw but the original ones do not. In my testing, the differential tester only compares one method--foo(String)--and outputs this as "Equivalent"; the other two are not compared at all.
+
+I would also expect the constructor and bar(Integer) to also be tested, but it seems these are filtered out in the build_project step (in the call to auto_select#classify). This seems like it is due to two reasons: 1) constructors are discarded, and 2) non-primitive/String ([]) parameter types mean a method is excluded from testing.
+
+At least according to Jazzer, reference parameter types are also supported (including those in the JDK but also in the target codebase), so I was wondering if there was a reason why these cases are not included, since they represent almost all of the methods I'm differentially testing in my project.
+
+Separately, I noticed an issue when I defined bar as bar(Foo foo) instead of bar(Integer foo), with Foo being a non-primary top-level class, i.e.:
+package example;
+
+public class Simple {
+    void foo(String x) {
+        return;
+    }
+    void bar(Foo foo) {
+        return;
+    }
+}
+
+class Foo {
+    
+}
+In this case, even foo(String) did not get tested, since pruner.py seems to be removing this class altogether (this may be because class Foo {} is included in both SimpleOriginal.java and SimpleRefactored.java, creating a duplicate and rendering everything uncompilable).Wthigomwmcs625

@@ -10,6 +10,10 @@ target/
 *.log
 run_*.log
 
+# Working-state / session context — never commit (see handoff.md provenance notes)
+/context.md
+/handoff.md
+
 # Local Maven / editor
 .idea/
 *.iml
