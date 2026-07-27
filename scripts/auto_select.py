@@ -63,6 +63,11 @@ def methods(src):
         # <PrimaryClass>.method; methods in a nested class/enum are at depth >= 2 -> skip.
         if clean.count("{", 0, brace) - clean.count("}", 0, brace) != 1:
             continue
+        # `... field = new Foo() { ... }` sits at brace depth 1 like a real method and matches
+        # SIG_RE with pre=="new". It is an anonymous-class instantiation, not a method — the
+        # resulting entry would only fail with NoSuchMethodException at fuzz time.
+        if re.search(r"\bnew\s*$", m.group("pre")):
+            continue
         depth, j, n = 0, brace, len(clean)
         while j < n:
             if clean[j] == "{": depth += 1

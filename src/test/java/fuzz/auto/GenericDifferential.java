@@ -332,8 +332,12 @@ public final class GenericDifferential
       } catch (CannotBuild e) {
         continue; // can't synthesize a parameter — try another constructor
       }
-      oc.setAccessible(true);
-      rc.setAccessible(true);
+      try {
+        oc.setAccessible(true);
+        rc.setAccessible(true);
+      } catch (RuntimeException e) {
+        continue; // InaccessibleObjectException (JPMS) — structural, try another constructor
+      }
       Outcome oOut = newInstanceOutcome(oc, copy(cargs));
       Outcome rOut = newInstanceOutcome(rc, copy(cargs));
       if (!ctorEquivalent(oOut, rOut)) {
@@ -382,11 +386,11 @@ public final class GenericDifferential
       } catch (CannotBuild e) {
         continue;
       }
-      c.setAccessible(true);
       try {
+        c.setAccessible(true); // may throw InaccessibleObjectException on a JPMS-closed package
         return c.newInstance(sub);
       } catch (Throwable th) {
-        continue; // this ctor of t threw — try another
+        continue; // this ctor of t is unreachable or threw — try another
       }
     }
     throw new CannotBuild(t.getName());

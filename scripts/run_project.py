@@ -108,7 +108,7 @@ def main(project, max_n, mode):
         r.write("| Method | Result | Tests (fail) | Branch | Line | Evidence |\n")
         r.write("|--------|--------|--------------|--------|------|----------|\n")
 
-    eq = div = err = skip = 0
+    eq = div = err = skip = find = 0
     for i, e in enumerate(entries, 1):
         harness = f"fuzz.auto.{projkey}.Auto_" + e["id"].replace(".", "_") + "_FuzzTest"
         log = os.path.join(logdir, e["id"].replace(".", "_") + ".log")
@@ -143,6 +143,14 @@ def main(project, max_n, mode):
         elif "[SKIP]" in out:
             res, ev = "SKIP", "no no-arg ctor (instance)"
             skip += 1
+        elif "com.code_intelligence.jazzer.api.FuzzerSecurityIssue" in out:
+            # A Jazzer sanitizer fired (reflective call / SSRF / ReDoS ...). The method DID run on
+            # both sides and did not diverge — this is a finding about the code, not a harness
+            # failure, so it must not be lumped in with ERROR.
+            sm = sorted(set(re.findall(r"FuzzerSecurityIssue(Critical|High|Medium|Low)", out)))
+            tm = re.search(r"FuzzerSecurityIssue\w+:\s*\n(.+)", out)
+            res, find = "FINDING", find + 1
+            ev = f"Jazzer sanitizer ({'/'.join(sm) or '?'}): {tm.group(1).strip()[:40] if tm else 'see log'}"
         elif m and fe == 0:
             res, ev, eq = "EQUIVALENT", f"no divergence in {dur}", eq + 1
         else:
@@ -154,9 +162,12 @@ def main(project, max_n, mode):
             r.write(f"| {e['id']} | **{res}** | {runs} ({fe}) | {branch} | {line} | {ev} |\n")
 
     with open(report, "a") as r:
-        r.write(f"\n## Summary\n\n- EQUIVALENT **{eq}** · DIVERGENT **{div}** · SKIP **{skip}** · ERROR **{err}**  ({len(entries)} methods)\n")
-        r.write("- SKIP = instance method with no no-arg constructor (receiver can't be built generically).\n")
-    print(f"Done. EQUIVALENT={eq} DIVERGENT={div} SKIP={skip} ERROR={err}  ->  {report}")
+        r.write(f"\n## Summary\n\n- EQUIVALENT **{eq}** · DIVERGENT **{div}** · FINDING **{find}** · SKIP **{skip}** · ERROR **{err}**"
+                f"  ({len(entries)} methods)\n")
+        r.write("- SKIP = instance method whose receiver can't be built generically (abstract/interface, or no synthesizable constructor).\n")
+        r.write("- FINDING = ran on both sides without diverging, but a Jazzer sanitizer fired on the code itself.\n")
+        r.write("- ERROR = could not be tested (missing class at runtime, inaccessible member, bad manifest entry).\n")
+    print(f"Done. EQUIVALENT={eq} DIVERGENT={div} FINDING={find} SKIP={skip} ERROR={err}  ->  {report}")
 
 
 if __name__ == "__main__":
