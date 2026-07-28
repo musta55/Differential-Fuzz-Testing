@@ -26,7 +26,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from auto_select import (  # noqa: E402
-    methods, classify, package, top_level_type_spans, strip_spans,
+    methods, classify, package, top_level_type_spans, strip_spans, all_scalar,
 )
 
 MODULE = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -146,7 +146,7 @@ def main(project, orig_root, ref_root):
             is_ctor = (name == cls)  # A2: constructors are tested as first-class units now
             ok, is_static, types = classify(n[key][1], n[key][2])
             if not ok:
-                continue  # NEEDS_OBJECT (a param the engine can't synthesize from fuzz bytes)
+                continue  # signature could not be parsed at all (not "takes an object")
             mid = f"{cls}.ctor" if is_ctor else f"{cls}.{name}"
             if mid in seen:
                 seen[mid] += 1
@@ -158,8 +158,20 @@ def main(project, orig_root, ref_root):
                 "original": f"{pkg}.{cls}Original",
                 "refactored": f"{pkg}.{cls}Refactored",
                 "method": "<init>" if is_ctor else name,
+                # Source spellings, advisory: the engine resolves by name+arity against the
+                # compiled class and reads real types by reflection (see GenericDifferential).
                 "params": [java_type(t) for t in types],
+                "arity": len(types),
                 "static": False if is_ctor else is_static,
+                # What the engine will need to build the arguments. `object` means the run
+                # depends on Jazzer autofuzz; `scalar` is the classic direct-from-bytes path.
+                "kind": "ctor" if is_ctor else ("scalar" if all_scalar(types) else "object"),
+                "source": {
+                    "class": cls,
+                    "package": pkg,
+                    "original": os.path.relpath(orig_p, orig_root),
+                    "refactored": os.path.relpath(ref_p, ref_root),
+                },
             }
             if is_ctor:
                 entry["ctor"] = True
@@ -204,7 +216,11 @@ def main(project, orig_root, ref_root):
         json.dump({"project": project, "source": {"original": orig_root, "refactored": ref_root},
                    "methods": entries}, f, indent=2)
 
-    print(f"{project}: {n_classes} classes, {len(entries)} auto-fuzzable methods")
+    kinds = {}
+    for e in entries:
+        kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
+    breakdown = ", ".join(f"{v} {k}" for k, v in sorted(kinds.items()))
+    print(f"{project}: {n_classes} classes, {len(entries)} changed methods ({breakdown})")
     print(f"  sources  -> src/test/Dataset/{project}/<pkg>/<Class>{{Original,Refactored}}.java")
     print(f"  manifest -> src/test/resources/{project}/manifest.json")
     return 0

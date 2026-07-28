@@ -45,25 +45,22 @@ def harness_duration(project):
 
 
 def constructible(entry, project):
-    """Cheap pre-skip: only skip instance methods the engine clearly can't build a receiver for
-    (abstract/interface, or only private constructors). Everything else runs — the engine now
-    constructs scalar AND recursively-buildable object constructors, and fast-skips at runtime
-    if it truly can't. Bias: prefer running (completeness) over pre-skipping."""
+    """Whether it is worth launching a fuzz run for this entry at all.
+
+    Deliberately almost always True. The old version pre-skipped, by source regex, every instance
+    method on an abstract class or one with no public constructor — which is precisely the set the
+    engine can now handle, via autofuzz and concrete-subtype substitution. Keeping that filter
+    would have silently cancelled the whole point of the change.
+
+    The only remaining pre-skip is a missing snapshot file, which means the pair was pruned and
+    there is nothing on the classpath to invoke. Everything else runs, and the engine decides at
+    runtime, printing [SKIP] with a specific reason when it truly cannot build a receiver.
+    """
     if entry["static"]:
         return True
-    fqn = entry["refactored"]
-    path = os.path.join(MODULE, "src/test/Dataset", project, fqn.replace(".", "/") + ".java")
-    if not os.path.isfile(path):
-        return False
-    src = open(path, errors="replace").read()
-    simple = fqn.split(".")[-1]
-    if re.search(r"\b(?:abstract\s+class|interface)\s+" + re.escape(simple) + r"\b", src):
-        return False
-    all_ctors = re.findall(r"(?:public|protected|private)\s+" + re.escape(simple) + r"\s*\(", src)
-    pub_ctors = re.findall(r"(?:public|protected)\s+" + re.escape(simple) + r"\s*\(", src)
-    if not all_ctors:
-        return True  # implicit no-arg constructor
-    return len(pub_ctors) > 0  # has an accessible constructor → let the engine try
+    path = os.path.join(MODULE, "src/test/Dataset", project,
+                        entry["refactored"].replace(".", "/") + ".java")
+    return os.path.isfile(path)
 
 
 def coverage(cp, refsimple, method):
@@ -103,23 +100,22 @@ def main(project, max_n, mode):
     with open(report, "w") as r:
         r.write(f"# Differential-Fuzzing Report — {project} ({man.get('model','qwen')})\n\n")
         r.write(f"- Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}  ·  Mode: **{mode}**  ·  {dur}/method\n")
-        r.write(f"- {len(entries)} auto-fuzzable methods (manifest-driven; original=<Class>Original, refactored=<Class>Refactored).\n")
+        r.write(f"- {len(entries)} changed methods (manifest-driven; original=<Class>Original, refactored=<Class>Refactored).\n")
         r.write("- Branch/Line = JaCoCo per-method coverage. DIVERGENT = exception-type or return-value mismatch (one-sided TIMEOUT is NOT counted).\n\n")
         r.write("| Method | Result | Tests (fail) | Branch | Line | Evidence |\n")
         r.write("|--------|--------|--------------|--------|------|----------|\n")
 
-    eq = div = err = skip = find = 0
+    eq = div = err = skip = find = never = 0
     for i, e in enumerate(entries, 1):
         harness = f"fuzz.auto.{projkey}.Auto_" + e["id"].replace(".", "_") + "_FuzzTest"
         log = os.path.join(logdir, e["id"].replace(".", "_") + ".log")
         refsimple = e["refactored"].split(".")[-1]
-        print(f"  [{i}/{len(entries)}] {e['id']} ...", end=" ", flush=True)
-        # pre-skip instance methods with no no-arg ctor (don't burn a 1-min fuzz on a no-op)
+        print(f"  [{i}/{len(entries)}] {e['id']} ({e.get('kind','?')}) ...", end=" ", flush=True)
         if not constructible(e, project):
             skip += 1
-            print("SKIP (no no-arg ctor)")
+            print("SKIP (snapshot pruned)")
             with open(report, "a") as r:
-                r.write(f"| {e['id']} | **SKIP** | - (-) | n/a | n/a | instance, no no-arg ctor |\n")
+                r.write(f"| {e['id']} | **SKIP** | - (-) | n/a | n/a | snapshot pruned, not on classpath |\n")
             continue
         exe = os.path.join(MODULE, "target/jacoco.exec")
         if os.path.exists(exe):
@@ -141,7 +137,8 @@ def main(project, max_n, mode):
             ev = (f"orig: {om.group(1).strip()[:30]} vs ref: {rm.group(1).strip()[:30]}"
                   if om and rm else "mismatch (see log)")
         elif "[SKIP]" in out:
-            res, ev = "SKIP", "no no-arg ctor (instance)"
+            sm = re.search(r"\[SKIP\].*?— (.+)", out)
+            res, ev = "SKIP", (sm.group(1).strip()[:60] if sm else "receiver not constructible")
             skip += 1
         elif "com.code_intelligence.jazzer.api.FuzzerSecurityIssue" in out:
             # A Jazzer sanitizer fired (reflective call / SSRF / ReDoS ...). The method DID run on
@@ -151,6 +148,12 @@ def main(project, max_n, mode):
             tm = re.search(r"FuzzerSecurityIssue\w+:\s*\n(.+)", out)
             res, find = "FINDING", find + 1
             ev = f"Jazzer sanitizer ({'/'.join(sm) or '?'}): {tm.group(1).strip()[:40] if tm else 'see log'}"
+        elif m and fe == 0 and "[DIFF-RAN]" not in out:
+            # The harness "passed" without ever invoking both sides: every iteration bailed
+            # because the arguments could not be built. Reporting that as EQUIVALENT would be a
+            # false negative dressed up as a result, so it gets its own verdict.
+            res, never = "NEVER-RAN", never + 1
+            ev = "args never built in budget (no two-sided invocation)"
         elif m and fe == 0:
             res, ev, eq = "EQUIVALENT", f"no divergence in {dur}", eq + 1
         else:
@@ -162,12 +165,18 @@ def main(project, max_n, mode):
             r.write(f"| {e['id']} | **{res}** | {runs} ({fe}) | {branch} | {line} | {ev} |\n")
 
     with open(report, "a") as r:
-        r.write(f"\n## Summary\n\n- EQUIVALENT **{eq}** · DIVERGENT **{div}** · FINDING **{find}** · SKIP **{skip}** · ERROR **{err}**"
+        r.write(f"\n## Summary\n\n- EQUIVALENT **{eq}** · DIVERGENT **{div}** · FINDING **{find}**"
+                f" · NEVER-RAN **{never}** · SKIP **{skip}** · ERROR **{err}**"
                 f"  ({len(entries)} methods)\n")
-        r.write("- SKIP = instance method whose receiver can't be built generically (abstract/interface, or no synthesizable constructor).\n")
+        r.write(f"- Tested **{eq + div + find}** of {len(entries)} methods; the rest produced no "
+                f"two-sided invocation. Only EQUIVALENT/DIVERGENT/FINDING are evidence.\n")
+        r.write("- DIVERGENT = the two versions differ in exception type, return value, or receiver state after the call.\n")
         r.write("- FINDING = ran on both sides without diverging, but a Jazzer sanitizer fired on the code itself.\n")
+        r.write("- NEVER-RAN = the harness completed but the receiver/arguments were never built, so nothing was compared. NOT equivalence.\n")
+        r.write("- SKIP = structurally untestable (abstract receiver with no concrete subtype, unbuildable parameter type, pruned snapshot).\n")
         r.write("- ERROR = could not be tested (missing class at runtime, inaccessible member, bad manifest entry).\n")
-    print(f"Done. EQUIVALENT={eq} DIVERGENT={div} FINDING={find} SKIP={skip} ERROR={err}  ->  {report}")
+    print(f"Done. EQUIVALENT={eq} DIVERGENT={div} FINDING={find} NEVER-RAN={never} "
+          f"SKIP={skip} ERROR={err}  ->  {report}")
 
 
 if __name__ == "__main__":

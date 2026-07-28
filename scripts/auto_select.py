@@ -68,6 +68,12 @@ def methods(src):
         # resulting entry would only fail with NoSuchMethodException at fuzz time.
         if re.search(r"\bnew\s*$", m.group("pre")):
             continue
+        # An annotation with arguments on its own line looks exactly like a signature once
+        # strip_noise() has blanked the literal: `@SuppressWarnings("")` matched as the method
+        # `SuppressWarnings` taking one parameter `""`. Seen for real in apex-core's
+        # RecoverableRpcProxy, where it produced a bogus manifest entry.
+        if m.start("name") > 0 and clean[m.start("name") - 1] == "@":
+            continue
         depth, j, n = 0, brace, len(clean)
         while j < n:
             if clean[j] == "{": depth += 1
@@ -101,27 +107,55 @@ def split_params(params):
 
 
 def param_type(p):
-    """Extract the (type) token of a single 'Type name' parameter, or None if not scalar."""
-    if "<" in p or "@" in p or "..." in p:
-        return None
-    toks = [t for t in p.replace("\t", " ").split() if t != "final"]
+    """Source-level type of one `Type name` parameter, or None if unparseable.
+
+    Annotations and `final` are stripped; generics are kept as written (the engine erases them).
+    A varargs `T...` becomes `T[]`, which is what the compiled signature actually is.
+    """
+    p = re.sub(r"@[A-Za-z_$][\w$.]*(\s*\([^)]*\))?", " ", p)  # drop annotations
+    p = p.replace("\t", " ").strip()
+    varargs = "..." in p
+    p = p.replace("...", " ")
+    toks = [t for t in p.split() if t != "final"]
     if len(toks) < 2:
         return None
-    return toks[-2]  # token before the parameter name
+    t = " ".join(toks[:-1]).strip()  # everything before the parameter name
+    return (t + "[]") if varargs else t
 
 
 def classify(pre, params):
-    """Return (auto_fuzzable, is_static, [typeTokens]) for a method signature."""
+    """Return (testable, is_static, [sourceTypeNames]) for a method signature.
+
+    Every parameter is now reported rather than filtered: the engine builds objects via Jazzer's
+    autofuzz, so a `Configuration` or `Sink<Object>` argument is no longer a reason to drop the
+    method. Half of apex-core's changed methods used to be discarded here and never tested at all.
+
+    The returned names are the SOURCE spellings and are advisory only — the engine resolves the
+    method by name and arity against the compiled class and reads the real parameter types by
+    reflection, because resolving a simple name like `Configuration` to an FQN from source would
+    mean reimplementing Java's import rules.
+
+    `testable` is False only when the signature could not be parsed at all.
+    """
     is_static = bool(re.search(r"\bstatic\b", pre))
     if not params:
         return True, is_static, []
     types = []
     for p in split_params(params):
         t = param_type(p)
-        if t is None or t not in SCALAR:
+        if t is None:
             return False, is_static, []
         types.append(t)
     return True, is_static, types
+
+
+def all_scalar(types):
+    """True when every parameter is a scalar the engine can build without autofuzz.
+
+    Retained so the manifest can label a method `scalar` vs `object`, which is what lets the
+    report show how much of the run depends on autofuzz.
+    """
+    return all(t in SCALAR for t in types)
 
 
 def package(path):
