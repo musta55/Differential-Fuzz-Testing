@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Iteratively `mvn test-compile` and drop any <Class>{Original,Refactored} pair that fails to
+Iteratively `./mvnw test-compile` and drop any <Class>{Original,Refactored} pair that fails to
 compile (missing project deps), plus its manifest entries, until the build is clean.
 
 This is the per-class dependency gate, automated: classes whose deps aren't on the
@@ -42,7 +42,7 @@ def filter_manifest(project, removed_bases):
 def main(project, max_rounds):
     all_removed = set()
     for rnd in range(max_rounds):
-        p = subprocess.run(["mvn", f"-P{project}", "test-compile"], cwd=MODULE, capture_output=True, text=True)
+        p = subprocess.run(["./mvnw", f"-P{project}", "test-compile"], cwd=MODULE, capture_output=True, text=True)
         out = p.stdout + p.stderr
         if "BUILD SUCCESS" in out:
             print(f"compile clean after {rnd} prune round(s). pruned classes: {len(all_removed)}")

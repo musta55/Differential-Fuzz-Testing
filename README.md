@@ -77,7 +77,7 @@ The report lands at `reports/apex-core/auto-fuzz-report.md`.
 | Step | Script | What it produces |
 |------|--------|------------------|
 | 1 | `build_project.py <p> --original <o> --refactored <r>` | `manifest.json` + renamed `<Class>{Original,Refactored}` snapshots |
-| 2 | `prune.py <p>` | iterative `mvn -P<p> test-compile`; drops class pairs whose deps don't resolve |
+| 2 | `prune.py <p>` | iterative `./mvnw -P<p> test-compile`; drops class pairs whose deps don't resolve |
 | 3 | `gen_harnesses.py <p> <dur>` | one thin Jazzer harness per manifest method |
 | 4 | `run_project.py <p>` | fuzzes each method + JaCoCo coverage → `reports/<p>/auto-fuzz-report.md` |
 
