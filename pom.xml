@@ -13,7 +13,7 @@
     Differential "first tester": fuzz an LLM-refactored method against its original on the
     SAME Jazzer inputs and report where they diverge. The BASE build carries only the engine's
     own dependencies (Jazzer, JUnit 5, gson, JaCoCo). Everything a target project needs to
-    compile/run lives in that project's <profile> — so `mvn -P<project>` compiles only that
+    compile/run lives in that project's <profile> — so `./mvnw -P<project>` compiles only that
     project, and adding a project never touches the base. See README.md.
   -->
 

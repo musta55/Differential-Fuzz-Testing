@@ -2,7 +2,7 @@
 """
 Run the differential-fuzzing suite for one project, driven by its manifest.json.
 
-For each method: JAZZER_FUZZ=1 mvn test on its generated harness (1 min via maxDuration),
+For each method: JAZZER_FUZZ=1 ./mvnw test on its generated harness (1 min via maxDuration),
 classify EQUIVALENT / DIVERGENT / ERROR, measure per-method JaCoCo branch/line coverage,
 and write reports/<project>/auto-fuzz-report.md (same columns as before).
 
@@ -121,7 +121,7 @@ def main(project, max_n, mode):
         if os.path.exists(exe):
             os.remove(exe)
         with open(log, "w") as lf:
-            subprocess.run(["timeout", "240", "mvn", f"-P{project}", "test", f"-Dtest={harness}",
+            subprocess.run(["timeout", "240", "./mvnw", f"-P{project}", "test", f"-Dtest={harness}",
                             "-Dsurefire.failIfNoSpecifiedTests=false", "-Dmaven.test.failure.ignore=true"],
                            cwd=MODULE, env=env, stdout=lf, stderr=subprocess.STDOUT)
         out = open(log, errors="replace").read()

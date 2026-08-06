@@ -7,7 +7,7 @@ Differential "first tester" — one entry point: two source trees in, one report
 It chains the four pipeline steps (each is a standalone script under scripts/):
 
     1. build_project.py   diff original vs refactored -> manifest.json + <Class>{Original,Refactored} snapshots
-    2. prune.py           iterative `mvn test-compile`; drop pairs whose deps don't resolve
+    2. prune.py           iterative `./mvnw test-compile`; drop pairs whose deps don't resolve
     3. gen_harnesses.py   one thin Jazzer harness per manifest method
     4. run_project.py     fuzz each method + JaCoCo coverage -> reports/<project>/auto-fuzz-report.md
 
