@@ -68,10 +68,31 @@ public final class GenericDifferential
     }
   }
 
+  /** Sides already reported as unbuildable, so a 30-second run prints one line, not a million. */
+  private static final java.util.Set<String> unbuildableSeen =
+      java.util.Collections.synchronizedSet(new java.util.HashSet<String>());
+
+  /**
+   * Record why one side could not be built.
+   *
+   * <p>Without this a method that never ran is reported as "arguments were never built" and the
+   * reader has to guess between two very different causes: a parameter type the engine cannot
+   * synthesise, or a refactored constructor that now throws — the latter being a real finding about
+   * the refactoring, hiding inside a non-result.
+   */
+  private static void noteUnbuildable(String side, Throwable e)
+  {
+    String msg = side + ": " + e.getMessage();
+    if (unbuildableSeen.add(msg)) {
+      System.out.println("[UNBUILT] " + msg);
+    }
+  }
+
   // ── entry point used by the generated harnesses ─────────────────────────────
 
   public static void run(FuzzedDataProvider data, String project, String id) throws Throwable
   {
+    JazzerCoverage.installIfRequested();
     Spec s = spec(project, id);
     Class<?> oCls = Class.forName(s.original);
     Class<?> rCls = Class.forName(s.refactored);
@@ -112,10 +133,19 @@ public final class GenericDifferential
     Side b;
     try {
       a = buildSide(seed, oCls, oM, s);
-      b = buildSide(seed, rCls, rM, s);
     } catch (ObjectFactory.Unbuildable e) {
       // Transient: autofuzz starved or the constructor it chose rejected this input. Structural
       // impossibility was already ruled out above, so try another input.
+      noteUnbuildable("original", e);
+      return;
+    }
+    try {
+      b = buildSide(seed, rCls, rM, s);
+    } catch (ObjectFactory.Unbuildable e) {
+      // Split from the original's build on purpose. When a method is never exercised, the only
+      // thing worth knowing is WHICH version refused to be built — a refactored constructor that
+      // now throws looks identical, in a merged handler, to an argument type nothing can make.
+      noteUnbuildable("refactored", e);
       return;
     }
 
@@ -142,7 +172,7 @@ public final class GenericDifferential
 
   // ── one side of one iteration ───────────────────────────────────────────────
 
-  private static final class Side
+  static final class Side
   {
     Object receiver;
     Object[] args;
@@ -153,7 +183,7 @@ public final class GenericDifferential
    * Build the receiver and arguments for one side from {@code seed}. Called twice with the same
    * bytes, so the two sides receive equal-but-independent values.
    */
-  private static Side buildSide(byte[] seed, Class<?> cls, Method m, Spec s)
+  static Side buildSide(byte[] seed, Class<?> cls, Method m, Spec s)
   {
     ReplayProvider p = new ReplayProvider(seed);
     Side side = new Side();
@@ -163,7 +193,9 @@ public final class GenericDifferential
       side.receiver = ObjectFactory.build(p, cls);
       side.receiverDesc = cls.getSimpleName() + "@built";
     }
-    Class<?>[] pts = m.getParameterTypes();
+    // Generic types, not raw ones: a List<Integer> parameter must reach ObjectFactory with its
+    // element type intact, or it is built empty and the method under test never enters its loop.
+    java.lang.reflect.Type[] pts = m.getGenericParameterTypes();
     Object[] args = new Object[pts.length];
     for (int i = 0; i < pts.length; i++) {
       args[i] = ObjectFactory.build(p, pts[i]);
@@ -203,7 +235,13 @@ public final class GenericDifferential
 
   private static final Map<String, Map<String, Spec>> CACHE = new HashMap<>();
 
-  private static final class Spec
+  /**
+   * Package-private, not private, so {@link SeedWriter} can drive the identical spec lookup,
+   * overload resolution and argument construction when it encodes a seed. Duplicating any of that
+   * would let the encoder and the fuzzer drift, and a seed that decodes to different arguments than
+   * the engine builds is worse than no seed at all.
+   */
+  static final class Spec
   {
     String original;
     String refactored;
@@ -215,7 +253,7 @@ public final class GenericDifferential
     boolean isCtor;
   }
 
-  private static synchronized Spec spec(String project, String id) throws Exception
+  static synchronized Spec spec(String project, String id) throws Exception
   {
     Map<String, Spec> byId = CACHE.get(project);
     if (byId == null) {
@@ -261,7 +299,7 @@ public final class GenericDifferential
    * Find the method by name and arity on the compiled snapshot, disambiguating same-arity
    * overloads with the source-level parameter names from the manifest.
    */
-  private static Method resolve(Class<?> c, Spec s) throws NoSuchMethodException
+  static Method resolve(Class<?> c, Spec s) throws NoSuchMethodException
   {
     List<Method> exact = new ArrayList<>();
     for (Class<?> k = c; k != null; k = k.getSuperclass()) {
@@ -446,6 +484,7 @@ public final class GenericDifferential
       argsA = buildCtorArgs(seed, oc);
       argsB = buildCtorArgs(seed, rc);
     } catch (ObjectFactory.Unbuildable e) {
+      noteUnbuildable("constructor arguments", e);
       return; // transient
     }
     Outcome o = timed(() -> newInstanceOutcome(oc, argsA));
@@ -474,7 +513,7 @@ public final class GenericDifferential
   private static Object[] buildCtorArgs(byte[] seed, Constructor<?> c)
   {
     ReplayProvider p = new ReplayProvider(seed);
-    Class<?>[] pts = c.getParameterTypes();
+    java.lang.reflect.Type[] pts = c.getGenericParameterTypes();
     Object[] args = new Object[pts.length];
     for (int i = 0; i < pts.length; i++) {
       args[i] = ObjectFactory.build(p, pts[i]);
@@ -482,7 +521,7 @@ public final class GenericDifferential
     return args;
   }
 
-  private static Constructor<?> resolveCtor(Class<?> c, Spec s) throws NoSuchMethodException
+  static Constructor<?> resolveCtor(Class<?> c, Spec s) throws NoSuchMethodException
   {
     List<Constructor<?>> cands = new ArrayList<>();
     for (Constructor<?> k : c.getDeclaredConstructors()) {

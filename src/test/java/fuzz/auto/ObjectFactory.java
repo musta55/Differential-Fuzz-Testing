@@ -75,6 +75,106 @@ final class ObjectFactory
   }
 
   /**
+   * Build one value of a possibly-generic parameter type.
+   *
+   * <p>This overload exists because erasure loses exactly the information that makes a collection
+   * parameter testable. Handed the raw {@code List}, autofuzz has no element type to work with and
+   * returns an <em>empty</em> ArrayList, every time — so a method that loops over its argument never
+   * entered the loop, and the demo's {@code Grader.total(List&lt;Integer&gt;)} sat at 1/4 branches
+   * while still reporting EQUIVALENT. The declared type {@code List<Integer>} is available from
+   * {@code Method.getGenericParameterTypes()}, so callers pass that and collections get populated
+   * with real elements.
+   *
+   * <p>Callers must be consistent about which overload they use: {@link SeedRecorder} and
+   * {@link ReplayProvider} have to consume the same number of bytes in the same order, so a seed
+   * recorded through the generic path and replayed through the raw one would decode to different
+   * arguments. Every call site therefore passes generic types.
+   */
+  static Object build(FuzzedDataProvider data, java.lang.reflect.Type t)
+  {
+    if (t instanceof java.lang.reflect.ParameterizedType) {
+      java.lang.reflect.ParameterizedType pt = (java.lang.reflect.ParameterizedType) t;
+      if (!(pt.getRawType() instanceof Class)) {
+        return build(data, Object.class);
+      }
+      Class<?> raw = (Class<?>) pt.getRawType();
+      java.lang.reflect.Type[] targs = pt.getActualTypeArguments();
+      if (java.util.Map.class.isAssignableFrom(raw) && targs.length == 2) {
+        return buildMap(data, raw, targs[0], targs[1]);
+      }
+      if (java.util.Collection.class.isAssignableFrom(raw) && targs.length == 1) {
+        return buildCollection(data, raw, targs[0]);
+      }
+      return build(data, raw);
+    }
+    if (t instanceof java.lang.reflect.GenericArrayType) {
+      return build(data, Object[].class);
+    }
+    if (t instanceof Class) {
+      return build(data, (Class<?>) t);
+    }
+    // A type variable (T) or wildcard has no concrete form here; String is the same stand-in
+    // CONCRETE already uses for a bare Object.
+    return build(data, String.class);
+  }
+
+  /** Element count for a generic collection; small, because the point is entering the loop. */
+  private static final int MAX_ELEMENTS = 8;
+
+  private static Object buildCollection(FuzzedDataProvider data, Class<?> raw,
+      java.lang.reflect.Type elem)
+  {
+    int n = data.consumeInt(0, MAX_ELEMENTS);
+    @SuppressWarnings("unchecked")
+    java.util.Collection<Object> c =
+        (java.util.Collection<Object>) newInstanceOf(effective(raw), java.util.ArrayList.class);
+    for (int i = 0; i < n; i++) {
+      try {
+        c.add(build(data, elem));
+      } catch (Unbuildable e) {
+        break; // a partially filled collection is still better than an empty one
+      }
+    }
+    return c;
+  }
+
+  private static Object buildMap(FuzzedDataProvider data, Class<?> raw,
+      java.lang.reflect.Type k, java.lang.reflect.Type v)
+  {
+    int n = data.consumeInt(0, MAX_ELEMENTS);
+    @SuppressWarnings("unchecked")
+    java.util.Map<Object, Object> m =
+        (java.util.Map<Object, Object>) newInstanceOf(effective(raw), java.util.LinkedHashMap.class);
+    for (int i = 0; i < n; i++) {
+      try {
+        m.put(build(data, k), build(data, v));
+      } catch (Unbuildable e) {
+        break;
+      }
+    }
+    return m;
+  }
+
+  /** Instantiate {@code raw} if it is concrete, else the given fallback implementation. */
+  private static Object newInstanceOf(Class<?> raw, Class<?> fallback)
+  {
+    if (!raw.isInterface() && !Modifier.isAbstract(raw.getModifiers())) {
+      try {
+        java.lang.reflect.Constructor<?> c = raw.getDeclaredConstructor();
+        c.setAccessible(true);
+        return c.newInstance();
+      } catch (Throwable e) {
+        // no usable no-arg constructor — fall through
+      }
+    }
+    try {
+      return fallback.getDeclaredConstructor().newInstance();
+    } catch (Throwable e) {
+      throw new Unbuildable("could not instantiate " + fallback.getName());
+    }
+  }
+
+  /**
    * Build one value of {@code t}. Never returns a value for a type it could not honour: an
    * unbuildable type raises {@link Unbuildable} so the caller can report SKIP rather than
    * silently pass null and mistake a NullPointerException on both sides for equivalence.

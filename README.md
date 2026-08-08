@@ -8,8 +8,9 @@ and reports where they disagree.
 
 - **Input:** two parallel source trees — `original/` and `refactored/` — with the same package layout.
 - **Output:** a Markdown report classifying every changed method and constructor as
-  **EQUIVALENT / DIVERGENT / FINDING / NEVER-RAN / SKIP / ERROR**, with per-method branch/line
-  coverage and, for each divergence, the reproducing input and the two differing outcomes.
+  **EQUIVALENT / DIVERGENT / SKIP**, with per-method branch/line coverage on *both* versions and,
+  for each divergence, the reproducing input and the two differing outcomes. A SKIP carries a
+  reason, so "could not be answered" never gets confused with "no difference found".
 
 If for even one input the two versions differ — in return value, exception type, or the state of
 the receiver they were called on — the method is **DIVERGENT**: either a bug the refactoring
@@ -42,9 +43,27 @@ snapshots are renamed copies (`Foo` → `FooOriginal`), which severs them from t
 hierarchy, so no concrete subtype of the snapshot exists to instantiate. Those are reported SKIP
 with that reason.
 
-## Quick start (apex-core example)
+## Quick start (self-contained demo)
 
-A worked example ships under [`examples/apex-core/`](examples/apex-core/): the `original/` and
+Start here: [`examples/demo/`](examples/demo/) needs no external dependencies and runs in a couple
+of minutes. Its three classes are built to produce one of every verdict — an equivalent refactoring
+over a 4-way branch, a dropped guard, a `List` parameter, and a refactored constructor that throws.
+
+```bash
+scripts/setup_evosuite.sh          # once: fetch EvoSuite 1.2.0 (needs a Java 8 JVM)
+
+python3 run.py example \
+    --original   examples/demo/original \
+    --refactored examples/demo/refactored \
+    --duration 30s
+```
+
+The report lands at `reports/example/auto-fuzz-report.md` — see [Reading the
+report](#reading-the-report).
+
+## Larger example (apex-core)
+
+A real-project example ships under [`examples/apex-core/`](examples/apex-core/): the `original/` and
 `refactored/` trees for 27 apex-core classes, plus a [`sample-report.md`](examples/apex-core/sample-report.md).
 
 ```bash
@@ -72,43 +91,135 @@ The report lands at `reports/apex-core/auto-fuzz-report.md`.
 > run it on JDK 8. A Java 17 project must be built/run on JDK 21 (`export JAVA_HOME=...`); set its
 > profile's `<maven.compiler.source|target>` to match. Step 1 (`build_project.py`) is pure Python.
 
-## What `run.py` does (the four steps)
+## What `run.py` does (the six steps)
 
 | Step | Script | What it produces |
 |------|--------|------------------|
 | 1 | `build_project.py <p> --original <o> --refactored <r>` | `manifest.json` + renamed `<Class>{Original,Refactored}` snapshots |
 | 2 | `prune.py <p>` | iterative `./mvnw -P<p> test-compile`; drops class pairs whose deps don't resolve |
 | 3 | `gen_harnesses.py <p> <dur>` | one thin Jazzer harness per manifest method |
-| 4 | `run_project.py <p>` | fuzzes each method + JaCoCo coverage → `reports/<p>/auto-fuzz-report.md` |
+| 4 | `gen_unittests.py <p>` | EvoSuite unit suites for the `<Class>Original` snapshots |
+| 5 | `gen_seeds.py <p>` | those tests' constants, encoded as the fuzzer's seed corpus |
+| 6 | `run_project.py <p>` | fuzzes each method + differential coverage → `reports/<p>/auto-fuzz-report.md` |
 
-Steps 1, 3, 4 are pure per-project; step 2 needs the project's dependencies on the classpath.
+Steps 1, 3, 6 are pure per-project; steps 2, 4, 5 need the project's dependencies on the classpath.
+Steps 4–5 need `scripts/setup_evosuite.sh` first.
 You can run steps individually, or all at once via `run.py`.
+
+## Seeding the fuzzer with generated unit tests
+
+The fuzzer does not start from nothing. Before fuzzing, EvoSuite generates a unit-test suite for
+each `<Class>Original` snapshot, and the constants those tests use become libFuzzer's starting
+corpus — so the search begins from values that already reach the code instead of growing them from
+random bytes. This is part of the normal pipeline, not an option.
+
+```bash
+scripts/setup_evosuite.sh          # once: fetch EvoSuite 1.2.0 (needs a Java 8 JVM)
+python3 run.py example --original examples/demo/original \
+                       --refactored examples/demo/refactored
+```
+
+**How a unit test becomes a seed.** A Jazzer input is a byte string, and what those bytes mean is
+decided by the engine's own argument builder — `ObjectFactory` plus Jazzer's autofuzz, including
+however many bytes a receiver's constructor consumes. There is no layout to write an encoder
+against. So `SeedWriter` runs that same builder against `SeedRecorder`, a `FuzzedDataProvider` that
+*writes* the bytes which would have produced each value it hands out, fed with the constants
+`extract_seeds.py` harvested from the suite. Every candidate is then decoded back through the real
+`GenericDifferential.buildSide` and **discarded unless the arguments come back identical**, so a
+seed that would have meant something other than the test it came from is never written.
+
+It is exact where it matters: apex-core's `VersionInfo.compare` is static with two String
+parameters, and its seeds decode to precisely the EvoSuite calls, e.g.
+`compare("10.04.2026 @ 00:14:56 UTC", "l%")`.
+
+Seeds are staged in `target/seeds/<project>/` and installed into `src/test/resources/` for a run,
+where Jazzer's JUnit integration picks them up automatically. Both copies are generated; the
+installed one is refreshed every run so a stale corpus cannot survive a regeneration.
+
+**Limits worth knowing.** Constants are harvested by scanning literals per test case rather than by
+resolving the call, so which are receiver arguments and which are method arguments is inferred:
+several alignments are tried and every distinct verified one is written. A value the recorder cannot
+express exactly (non-ASCII in a `String` parameter, a surrogate `char`) fails verification and is
+dropped rather than silently mangled.
+
+`scripts/unit_coverage.py` is a separate, optional tool that measures what the unit suite covers on
+its own. It is the only place a JaCoCo agent is still used — Jazzer cannot measure a plain JUnit
+run, because it is not in the loop when the suite executes.
+
+## Coverage comes from Jazzer, and is differential
+
+Every input runs through the original and the refactored method in the same iteration, so both
+sides have coverage and the report shows **both**. That pairing is what makes an EQUIVALENT verdict
+readable: "no divergence" is only as strong as the fraction of each version's branches the fuzzer
+actually reached, and a one-sided number would hide a branch the refactoring added that nothing ever
+exercised. It also makes shape changes visible — in the demo, `Grader.passes` reports `4/4` branches
+on the original against `2/2` on the refactored, because the refactoring deleted a guard.
+
+The numbers are Jazzer's own instrumentation, which it installs to steer its search, so nothing is
+counted that the fuzzer did not drive. `JazzerCoverage` dumps it at JVM exit in JaCoCo `.exec`
+format and `CovReport` reads it with the jacoco-core **library**.
+
+**There is no JaCoCo agent in this pipeline.** Two agents instrumenting the same classes made Jazzer
+record jacoco-rewritten bytes whose class ids no longer matched the class files, and every method
+reported `0/0`. Jazzer's numbers are also better attributed: it correctly reports a method the
+harness never calls as `0/1`, where the JaCoCo agent said `1/1`.
+
+Two footnotes on Jazzer, both found the hard way:
+
+- `-Djazzer.coverage_dump` is **silently inert** under `mvn test`. Jazzer only acts on it in
+  `FuzzTargetRunner.shutdown()`, which the JUnit integration never calls, so `JazzerCoverage`
+  registers the dump as a shutdown hook itself.
+- Surefire's `<argLine>` configuration element beats a command-line `-DargLine`, so the pom exposes
+  a `${fuzz.jvmArgs}` property as the supported seam for passing test-JVM flags.
 
 ## Reading the report
 
-- **DIVERGENT** — the two versions differ on some input, in exception type, return value, or
-  receiver state after the call. The real finding; triage each as bug vs intentional fix. The
-  `reason` line names what differed, down to the field (`readWriteRoles: TreeSet[B] vs TreeSet[]`).
-  To see the proof:
-  ```bash
-  grep -a -A6 -F "[DIFFERENTIAL MISMATCH]" target/fuzz-logs/<project>/<Class>_<method>.log
-  ```
-  The block prints `methodArgs` (the reproducing input, with non-printables escaped) and both
-  outcomes. Use `grep -a`: fuzz logs contain raw bytes, and without it grep treats them as binary
-  and silently prints nothing.
-- **EQUIVALENT** — no divergence found in the time budget. Trust it in proportion to the **Branch**
-  column: `4/4` = both outcomes of every decision were exercised; `0/0` = branchless (read the Line
-  column); low branch = under-explored, not proven equivalent.
-- **NEVER-RAN** — the harness completed but the receiver or arguments were never successfully
-  built, so nothing was ever compared. This is **not** equivalence; it is an untested method that
-  would otherwise have been miscounted as a clean result.
-- **SKIP** — structurally untestable: an abstract/interface receiver with no concrete subtype, a
-  parameter type nothing can build, or a snapshot dropped by pruning.
-- **ERROR** — ran but couldn't be tested (missing class at runtime, inaccessible member, bad
-  manifest entry).
+`reports/<project>/auto-fuzz-report.md` opens with the class and method counts and a summary table,
+then one row per method. From the demo:
 
-Only EQUIVALENT, DIVERGENT and FINDING mean both versions actually executed. The report's summary
-line states how many of the manifest's methods that was.
+| Method | Kind | Verdict | Reason | Inputs (fail) | Branch orig | Branch ref | Confidence | Why |
+|---|---|---|---|---|---|---|---|---|
+| `Grader.grade` | scalar | **EQUIVALENT** | - | 8 (0) | 6/6 | 6/6 | all 12 branches exercised | no divergence found in 30s of fuzzing |
+| `Grader.passes` | scalar | **DIVERGENT** | - | 5 (2) | 4/4 | 2/2 | witnessed | **exception type** — on `[-6874]` original throws IllegalArgumentException, refactored returns false |
+| `Grader.total` | object | **EQUIVALENT** | - | 4 (0) | 3/4 | 3/4 | 6/8 branches (75%) | no divergence found in 30s of fuzzing |
+| `Simple.foo` | scalar | **SKIP** | never ran | 3 (0) | 0/0 | 0/0 | - | refactored: neither autofuzz nor constructor synthesis built `SimpleRefactored` |
+
+**There are exactly three verdicts.**
+
+- **DIVERGENT** — the two versions differ on some input, in exception type, return value, or receiver
+  state after the call. The `Why` column names which of those differed and prints the reproducing
+  input. This is the finding the tool exists to surface; triage each as bug vs intentional fix.
+- **EQUIVALENT** — no divergence found *in the budget*. Never a proof; read the Confidence column.
+- **SKIP** — no verdict could be reached. The `Reason` column says which kind, and the summary
+  totals them under **Why the SKIPs**:
+
+| Reason | What it means |
+|---|---|
+| `never ran` | the harness completed but no input ever built a receiver **and** arguments for **both** sides, so nothing was compared. The `Why` column names the side that refused. Usually a fact about the refactoring — in the demo, `Simple.foo` lands here because the *refactored constructor throws*. **Not** equivalence. |
+| `structurally untestable` | no input could ever work: an abstract receiver with no concrete subtype, or a parameter type nothing can build. |
+| `pruned snapshot` | the pair did not compile and was dropped by the compile gate. |
+| `harness error` | missing class at runtime, inaccessible member, bad manifest entry. |
+| `sanitizer finding` | it *did* run on both sides without diverging, but a Jazzer sanitizer fired on the code itself. Worth reading — it is a bug report about the code, just not a differential result. |
+
+Only EQUIVALENT and DIVERGENT are evidence about behaviour; the summary says how many of the
+manifest's methods got that far.
+
+**The Confidence column is how much an EQUIVALENT is worth.** Fuzzing is sound for non-equivalence
+and incomplete for equivalence, so "no counterexample in 30 seconds" needs a second number to be
+readable. Confidence reports the branches actually reached across both versions: `all 12 branches
+exercised` is a result worth trusting, `only 2/8 branches (25%) — weak` is barely evidence at all.
+Anything under 60% is listed again under **EQUIVALENT verdicts to distrust** at the end of the
+report, with the suggested remedies (raise `--duration`, improve the seed corpus).
+
+To see a divergence's proof:
+
+```bash
+grep -a -A6 -F "[DIFFERENTIAL MISMATCH]" target/fuzz-logs/<project>/<Class>_<method>.log
+```
+
+The block prints `methodArgs` (the reproducing input, non-printables escaped) and both outcomes.
+Use `grep -a`: fuzz logs contain raw bytes, and without it grep treats them as binary and silently
+prints nothing.
 
 ## Add your own project
 
@@ -129,14 +240,22 @@ scripts/
   build_project.py                       (1) two-tree diff -> manifest + snapshots
   prune.py                               (2) compile-and-drop gate
   gen_harnesses.py                       (3) one Jazzer harness per method
-  run_project.py                         (4) fuzz + coverage -> report
+  gen_unittests.py                       (4) EvoSuite suites for the Original snapshots
+  gen_seeds.py                           (5) extract constants + encode them as a seed corpus
+  extract_seeds.py                       (5a) per-test-case constants -> seed-values.json
+  run_project.py                         (6) fuzz + differential coverage -> report
+  unit_coverage.py                       optional: what the unit suite alone covers, per method
   auto_select.py                         shared Java-parsing helpers
-  CovReport.java                         JaCoCo per-method branch/line extractor
+  CovReport.java                         per-method branch/line extractor (reads Jazzer's .exec)
   setup_deps.sh                          install a project's built classes as local Maven jars
+  setup_evosuite.sh                      fetch EvoSuite + install its runtime locally
 src/test/java/fuzz/auto/
   GenericDifferential.java               the shared reflection engine + oracle
   ObjectFactory.java                     builds any argument: scalars -> autofuzz -> ctor synthesis
   ReplayProvider.java                    deterministic provider so both sides get identical inputs
+  SeedRecorder.java                      its inverse: writes the bytes that decode to given values
+  SeedWriter.java                        unit-test constants -> verified Jazzer seed corpus
+  JazzerCoverage.java                    dumps Jazzer's own coverage as a JaCoCo .exec at exit
   Digest.java                            structural comparison of return values and receiver state
 examples/apex-core/{original,refactored}/          worked example input trees
 examples/apex-core/sample-report.md                what the output looks like

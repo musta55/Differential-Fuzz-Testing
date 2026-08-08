@@ -403,12 +403,64 @@ final class Digest
   }
 
   /**
-   * Simple class name with the snapshot suffix removed. The two sides are always different
-   * classes, so without this every object-valued result would diverge on its type name alone.
+   * Simple class name, normalised so that two structurally identical objects from the two
+   * snapshots render the same.
+   *
+   * <p>Two normalisations, in this order:
+   * <ol>
+   *   <li><b>Runtime-generated names are reduced to their stable part.</b> A lambda's class is
+   *       named after the class that defines it plus JVM bookkeeping: on JDK 8
+   *       {@code XPathPanelOriginal$$Lambda$511/1846530780}, on later JDKs
+   *       {@code XPathPanelOriginal$$Lambda/0x00000008000c2440}. Both the counter and the
+   *       identity/address suffix are assigned by load order, so they differ between the two
+   *       sides even for byte-identical code. This is what made
+   *       {@code XPathPanel.getCheckXPathButton} report DIVERGENT on nothing more than the
+   *       action listener installed on the button it returns. Measured against the jmeter/qwen
+   *       run of 2026-07-28: 16 of its 113 divergences rendered a lambda name, and for 3 of them
+   *       ({@code XPathPanel.getCheckXPathButton}, {@code HtmlPane.<init>},
+   *       {@code TCPConfigGui.createClosePortPanel}) the lambda name was the whole difference.
+   *       The other 13 differ elsewhere as well, in AWT {@code appContext} state, which is a
+   *       separate problem. apex-core and openmeetings render no lambda names at all. Cutting at
+   *       {@code '/'} and keeping only the alphabetic tag after {@code $$} leaves
+   *       {@code XPathPanel$$Lambda}, which is stable across loads and JDK versions while still
+   *       distinguishing a lambda from a CGLIB proxy from the class itself.</li>
+   *   <li><b>The snapshot suffix is stripped from what remains.</b> The two sides are always
+   *       different classes ({@code FooOriginal} vs {@code FooRefactored}), so without this every
+   *       object-valued result would diverge on its type name alone. Note this must run on the
+   *       prefix extracted in step 1, not on the raw name: {@code XPathPanelOriginal$$Lambda$511}
+   *       does not end in {@code Original}, which is precisely why the old one-step version let
+   *       the whole synthetic name through.</li>
+   * </ol>
    */
   private static String name(Class<?> c)
   {
-    String n = c.getSimpleName();
+    String n;
+    try {
+      n = c.getSimpleName();
+    } catch (Throwable t) {
+      // getSimpleName() is not total on JDK 8 (InternalError "Malformed class name" on some
+      // nested/synthetic classes). Letting it escape would abort the whole digest walk, which
+      // diff() reports as inconclusive — a silent false negative.
+      n = c.getName();
+    }
+    int slash = n.indexOf('/');
+    if (slash >= 0) {
+      n = n.substring(0, slash);
+    }
+    int marker = n.indexOf("$$");
+    if (marker >= 0) {
+      String tag = n.substring(marker + 2);
+      int end = 0;
+      while (end < tag.length() && Character.isLetter(tag.charAt(end))) {
+        end++;
+      }
+      return stripSnapshotSuffix(n.substring(0, marker)) + "$$" + tag.substring(0, end);
+    }
+    return stripSnapshotSuffix(n);
+  }
+
+  private static String stripSnapshotSuffix(String n)
+  {
     if (n.endsWith("Original")) {
       return n.substring(0, n.length() - "Original".length());
     }

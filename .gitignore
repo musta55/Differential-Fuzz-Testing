@@ -37,3 +37,12 @@ __pycache__/
 # JVM crash logs
 hs_err_pid*
 replay_pid*
+
+# EvoSuite jars, fetched by scripts/setup_evosuite.sh (~27MB, not source)
+/tools/
+
+# EvoSuite writes these into its working directory; gen_unittests.py contains them under
+# target/evosuite/<project>/ but an interrupted or hand-run invocation can still drop them here.
+/evosuite-report/
+/evosuite-tests/
+/.evosuite/

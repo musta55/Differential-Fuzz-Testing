@@ -12,7 +12,7 @@
   <!--
     Differential "first tester": fuzz an LLM-refactored method against its original on the
     SAME Jazzer inputs and report where they diverge. The BASE build carries only the engine's
-    own dependencies (Jazzer, JUnit 5, gson, JaCoCo). Everything a target project needs to
+    own dependencies (Jazzer, JUnit 5, gson). Everything a target project needs to
     compile/run lives in that project's <profile> — so `./mvnw -P<project>` compiles only that
     project, and adding a project never touches the base. See README.md.
   -->
@@ -23,6 +23,13 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jazzer.version>0.22.0</jazzer.version>
     <junit.version>5.9.3</junit.version>
+    <!--
+      Extra JVM flags for the test JVM, appended to <argLine> below. A bare -DargLine=... on the
+      command line CANNOT be used for this: surefire's own <argLine> configuration element wins over
+      the property, so the flags are silently dropped. This is the supported seam instead — used by
+      scripts/run_project.py to pass -Dfuzz.jazzerCoverage=<path> (see JazzerCoverage).
+    -->
+    <fuzz.jvmArgs></fuzz.jvmArgs>
   </properties>
 
   <dependencies>
@@ -79,8 +86,8 @@
         <version>2.22.2</version>
         <configuration>
           <!-- Jazzer instruments bytecode at load time. JAZZER_FUZZ=1 activates fuzzing;
-               without it, only the corpus seeds replay. @{argLine} is filled by jacoco. -->
-          <argLine>@{argLine} -XX:+IgnoreUnrecognizedVMOptions</argLine>
+               without it, only the corpus seeds replay. -->
+          <argLine>-XX:+IgnoreUnrecognizedVMOptions ${fuzz.jvmArgs}</argLine>
           <!-- Sandbox the test JVM cwd: fuzzed args passed to file-I/O create files in cwd;
                keep that litter inside target/ (git-ignored) instead of the module root. -->
           <workingDirectory>${project.build.directory}/fuzz-cwd</workingDirectory>
@@ -90,19 +97,6 @@
         </configuration>
       </plugin>
 
-      <!-- JaCoCo: per-method branch coverage (writes target/jacoco.exec; analyzed by
-           scripts/CovReport against target/test-classes). -->
-      <plugin>
-        <groupId>org.jacoco</groupId>
-        <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.8.11</version>
-        <executions>
-          <execution>
-            <id>prepare-agent</id>
-            <goals><goal>prepare-agent</goal></goals>
-          </execution>
-        </executions>
-      </plugin>
     </plugins>
   </build>
 
