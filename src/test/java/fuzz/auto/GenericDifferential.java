@@ -41,8 +41,8 @@ import org.junit.jupiter.api.Assertions;
  * Jazzer's autofuzz and falls back to a concrete-subtype scan for abstract receivers.
  *
  * <h2>Equivalence</h2>
- * DIVERGENT iff the two sides differ in exception <em>type</em>, in return value, or in receiver
- * state after the call. Return values and receivers are compared by {@link Digest}, a structural
+ * DIVERGENT iff the two sides differ in the exception they throw (class <em>and</em> cause chain),
+ * in return value, or in receiver state after the call. Return values and receivers are compared by {@link Digest}, a structural
  * field walk, because domain classes inherit identity {@code equals()} and would otherwise diverge
  * on every input. A one-sided watchdog TIMEOUT is inconclusive, never divergent.
  *
@@ -66,6 +66,38 @@ public final class GenericDifferential
       announcedRan = true;
       System.out.println("[DIFF-RAN] both sides invoked at least once");
     }
+  }
+
+  /**
+   * How much testing the fixed time budget actually bought.
+   *
+   * <p>Neither number is available from outside this class. Surefire reports "Tests run: 8", which
+   * counts JUnit invocations — the seed corpus replayed once each plus a single call for the whole
+   * fuzzing session — not fuzz iterations, and libFuzzer's own {@code #N} progress lines never reach
+   * the log under the JUnit integration. So "30 seconds" was previously a duration with no idea how
+   * many inputs fitted inside it.
+   *
+   * <p>The two counts differ, and the gap is the interesting part: {@code inputs} is every input the
+   * fuzzer produced, {@code comparisons} is only those that got as far as invoking BOTH versions.
+   * A method whose receiver is expensive to build can try a million inputs and compare almost none,
+   * and that is precisely when an EQUIVALENT verdict should not be believed.
+   */
+  private static final java.util.concurrent.atomic.AtomicLong inputCount =
+      new java.util.concurrent.atomic.AtomicLong();
+  private static final java.util.concurrent.atomic.AtomicLong comparisonCount =
+      new java.util.concurrent.atomic.AtomicLong();
+  private static volatile boolean statsHookInstalled = false;
+
+  private static synchronized void installStatsHook()
+  {
+    if (statsHookInstalled) {
+      return;
+    }
+    statsHookInstalled = true;
+    Runtime.getRuntime().addShutdownHook(new Thread(
+        () -> System.out.println("[DIFF-STATS] inputs=" + inputCount.get()
+            + " comparisons=" + comparisonCount.get()),
+        "diff-stats"));
   }
 
   /** Sides already reported as unbuildable, so a 30-second run prints one line, not a million. */
@@ -93,6 +125,8 @@ public final class GenericDifferential
   public static void run(FuzzedDataProvider data, String project, String id) throws Throwable
   {
     JazzerCoverage.installIfRequested();
+    installStatsHook();
+    inputCount.incrementAndGet();
     Spec s = spec(project, id);
     Class<?> oCls = Class.forName(s.original);
     Class<?> rCls = Class.forName(s.refactored);
@@ -160,6 +194,7 @@ public final class GenericDifferential
     Outcome o = invokeTimed(oM, a.receiver, a.args);
     Outcome r = invokeTimed(rM, b.receiver, b.args);
     announceRan();
+    comparisonCount.incrementAndGet();
 
     String why = divergence(o, r, oM.getReturnType(), a.receiver, b.receiver, receiversStartedEqual);
     if (why != null) {
@@ -358,15 +393,45 @@ public final class GenericDifferential
     @Override public String toString() { return threw() ? "throws " + exception : "returns " + render(value); }
   }
 
+  /**
+   * Name a thrown outcome by its class AND the chain of causes underneath it.
+   *
+   * <p>The simple name alone is not the observable behaviour of a throw. {@code
+   * throw new Error(new NullPointerException())} and {@code throw new Error(new
+   * UnsupportedOperationException())} are different things to every caller that inspects
+   * {@code getCause()}, yet both reduce to "Error" and were reported EQUIVALENT (github issue #1).
+   * Wrapping an exception in a runtime type is also a common refactoring, so the wrapped type is
+   * exactly where a behaviour change hides.
+   *
+   * <p>Class names only, never messages: fuzzed messages routinely embed the input, a path or a
+   * hash, so comparing them would report almost every method as divergent. Identity-tracked and
+   * depth-capped because a cause chain may be self-referential or arbitrarily long.
+   */
+  private static String describeThrown(Throwable t)
+  {
+    StringBuilder sb = new StringBuilder();
+    java.util.Set<Throwable> seen = java.util.Collections.newSetFromMap(
+        new java.util.IdentityHashMap<Throwable, Boolean>());
+    Throwable cur = t;
+    for (int depth = 0; cur != null && depth < 5 && seen.add(cur); depth++) {
+      if (depth > 0) {
+        sb.append("<-");
+      }
+      sb.append(cur.getClass().getSimpleName());
+      cur = cur.getCause();
+    }
+    return sb.toString();
+  }
+
   private static Outcome invoke(Method m, Object inst, Object[] args)
   {
     try {
       return new Outcome(m.invoke(inst, args), null);
     } catch (InvocationTargetException e) {
       Throwable c = e.getCause() != null ? e.getCause() : e;
-      return new Outcome(null, c.getClass().getSimpleName());
+      return new Outcome(null, describeThrown(c));
     } catch (Throwable t) {
-      return new Outcome(null, t.getClass().getSimpleName());
+      return new Outcome(null, describeThrown(t));
     }
   }
 
@@ -389,7 +454,7 @@ public final class GenericDifferential
       return new Outcome(null, "TIMEOUT");
     } catch (Throwable e) {
       Throwable c = e.getCause() != null ? e.getCause() : e;
-      return new Outcome(null, c.getClass().getSimpleName());
+      return new Outcome(null, describeThrown(c));
     }
   }
 
@@ -490,6 +555,7 @@ public final class GenericDifferential
     Outcome o = timed(() -> newInstanceOutcome(oc, argsA));
     Outcome r = timed(() -> newInstanceOutcome(rc, argsB));
     announceRan();
+    comparisonCount.incrementAndGet();
 
     String why = null;
     if ("TIMEOUT".equals(o.exception) || "TIMEOUT".equals(r.exception)) {
@@ -560,9 +626,9 @@ public final class GenericDifferential
       return new Outcome(c.newInstance(args), null);
     } catch (InvocationTargetException e) {
       Throwable cause = e.getCause() != null ? e.getCause() : e;
-      return new Outcome(null, cause.getClass().getSimpleName());
+      return new Outcome(null, describeThrown(cause));
     } catch (Throwable t) {
-      return new Outcome(null, t.getClass().getSimpleName());
+      return new Outcome(null, describeThrown(t));
     }
   }
 

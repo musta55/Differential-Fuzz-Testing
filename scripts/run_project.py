@@ -2,7 +2,8 @@
 """
 Fuzz every changed method of one project and report whether the refactoring preserved behaviour.
 
-    run_project.py <project> [--max N] [--regression] [--report NAME] [--keep-corpus]
+    run_project.py <project> [--max N] [--regression] [--report NAME] [--report-dir DIR]
+                             [--keep-corpus]
 
 For each method in the manifest: run its Jazzer harness (JAZZER_FUZZ=1, seeded from the EvoSuite
 corpus staged in target/seeds/<project>), classify the outcome, measure per-method coverage on BOTH
@@ -176,7 +177,7 @@ def confidence(branch_o, branch_r):
     return f"only {cov}/{tot} branches ({pctv:.0f}%) — weak"
 
 
-def main(project, max_n, mode, report_name, keep_corpus):
+def main(project, max_n, mode, report_name, keep_corpus, report_dir=None):
     projkey = project.replace("-", "_")
     man = json.load(open(os.path.join(MODULE, "src/test/resources", project, "manifest.json")))
     entries = man["methods"][:max_n] if max_n else man["methods"]
@@ -193,7 +194,12 @@ def main(project, max_n, mode, report_name, keep_corpus):
 
     logdir = os.path.join(MODULE, "target/fuzz-logs", project)
     os.makedirs(logdir, exist_ok=True)
-    repdir = os.path.join(MODULE, "reports", project)
+    # --report-dir lets several unrelated runs share the `example` profile without overwriting each
+    # other's reports, which is what scripts/check_issues.py needs: every case is built into the
+    # same profile directories, so without this each case's report replaced the previous one.
+    repdir = report_dir if report_dir else os.path.join(MODULE, "reports", project)
+    if not os.path.isabs(repdir):
+        repdir = os.path.join(MODULE, repdir)
     os.makedirs(repdir, exist_ok=True)
     report = os.path.join(repdir, report_name)
 
@@ -225,6 +231,7 @@ def main(project, max_n, mode, report_name, keep_corpus):
             print("SKIP (snapshot pruned)")
             rows.append({"id": e["id"], "kind": e.get("kind", "?"), "result": "SKIP",
                          "reason": "pruned snapshot", "runs": "-", "fails": 0,
+                         "inputs": 0, "cmp": 0,
                          "bo": "n/a", "br": "n/a", "lo": "n/a", "lr": "n/a",
                          "why": "snapshot pruned by the compile gate, not on the classpath",
                          "conf": "-"})
@@ -243,6 +250,12 @@ def main(project, max_n, mode, report_name, keep_corpus):
         m = re.search(r"Tests run: (\d+), Failures: (\d+), Errors: (\d+)", out)
         runs = m.group(1) if m else "?"
         fe = (int(m.group(2)) + int(m.group(3))) if m else 0
+        # How much testing the budget actually bought. Surefire's "Tests run" counts JUnit
+        # invocations (each seed once, plus one call for the whole fuzzing session), not fuzz
+        # iterations, so the engine counts them itself and prints them at JVM exit.
+        st = re.search(r"\[DIFF-STATS\] inputs=(\d+) comparisons=(\d+)", out)
+        n_inputs = int(st.group(1)) if st else 0
+        n_cmp = int(st.group(2)) if st else 0
         bo, lo = coverage(cp, osimple, e["method"])
         br, lr = coverage(cp, rsimple, e["method"])
 
@@ -300,10 +313,10 @@ def main(project, max_n, mode, report_name, keep_corpus):
         if res == "SKIP":
             skip_reasons[reason] = skip_reasons.get(reason, 0) + 1
         print(f"{res}{'' if reason == '-' else ' (' + reason + ')'}"
-              f"  (branch orig {bo} / ref {br})")
+              f"  ({n_cmp} comparisons, branch orig {bo} / ref {br})")
         rows.append({"id": e["id"], "kind": e.get("kind", "?"), "result": res, "reason": reason,
-                     "runs": runs, "fails": fe, "bo": bo, "br": br, "lo": lo, "lr": lr,
-                     "why": why, "conf": conf})
+                     "runs": runs, "fails": fe, "inputs": n_inputs, "cmp": n_cmp,
+                     "bo": bo, "br": br, "lo": lo, "lr": lr, "why": why, "conf": conf})
 
     write_report(report, project, man, entries, classes, rows, counts, skip_reasons, dur, mode,
                  n_seeds, keep_corpus)
@@ -335,6 +348,19 @@ def write_report(path, project, man, entries, classes, rows, counts, skip_reason
                 "below |\n\n")
         r.write(f"**{tested} of {len(entries)} methods got a verdict**; {counts['SKIP']} could not "
                 "be processed. Only EQUIVALENT and DIVERGENT are evidence about behaviour.\n\n")
+
+        total_in = sum(x.get("inputs", 0) for x in rows)
+        total_cmp = sum(x.get("cmp", 0) for x in rows)
+        r.write(f"**Testing effort:** every method got a fixed budget of **{dur}**, in which the "
+                f"fuzzer generated **{total_in:,} inputs** and completed "
+                f"**{total_cmp:,} differential comparisons** (both versions invoked on the same "
+                "input). The per-method counts are in the table below.\n\n")
+        r.write("> `Inputs` is every input the fuzzer produced; `Compared` is only those that got "
+                "as far as running BOTH versions. A large gap means most inputs died building a "
+                "receiver or an argument, which is exactly when an EQUIVALENT should be doubted — "
+                "and it is invisible in surefire's \"Tests run\", which counts JUnit invocations "
+                "(each seed once, plus one call for the whole fuzzing session), not fuzz "
+                "iterations.\n\n")
 
         if skip_reasons:
             # The three-bucket summary is the headline, but "SKIP" alone cannot be acted on: a
@@ -368,12 +394,12 @@ def write_report(path, project, man, entries, classes, rows, counts, skip_reason
         r.write("## Per method\n\n")
         r.write("Coverage is **differential**: `orig` is the `<Class>Original` snapshot, `ref` the "
                 "`<Class>Refactored` one, both measured by Jazzer in the same run.\n\n")
-        r.write("| Method | Kind | Verdict | Reason | Inputs (fail) | Branch orig | Branch ref | "
-                "Line orig | Line ref | Confidence | Why |\n")
-        r.write("|---|---|---|---|---|---|---|---|---|---|---|\n")
+        r.write("| Method | Kind | Verdict | Reason | Inputs | Compared | Branch orig | "
+                "Branch ref | Line orig | Line ref | Confidence | Why |\n")
+        r.write("|---|---|---|---|---:|---:|---|---|---|---|---|---|\n")
         for x in rows:
             r.write(f"| `{x['id']}` | {x['kind']} | **{x['result']}** | {x.get('reason','-')} "
-                    f"| {x['runs']} ({x['fails']}) "
+                    f"| {x.get('inputs', 0):,} | {x.get('cmp', 0):,} "
                     f"| {x['bo']} | {x['br']} | {x['lo']} | {x['lr']} | {x['conf']} | {x['why']} |\n")
 
         div = [x for x in rows if x["result"] == "DIVERGENT"]
@@ -405,4 +431,5 @@ if __name__ == "__main__":
     mx = int(a[a.index("--max") + 1]) if "--max" in a else 0
     md = "regression" if "--regression" in a else "fuzz"
     rn = a[a.index("--report") + 1] if "--report" in a else "auto-fuzz-report.md"
-    main(proj, mx, md, rn, "--keep-corpus" in a)
+    rd = a[a.index("--report-dir") + 1] if "--report-dir" in a else None
+    main(proj, mx, md, rn, "--keep-corpus" in a, rd)

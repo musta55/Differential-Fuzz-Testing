@@ -46,3 +46,4 @@ replay_pid*
 /evosuite-report/
 /evosuite-tests/
 /.evosuite/
+issues/

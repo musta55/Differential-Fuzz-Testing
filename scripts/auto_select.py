@@ -28,31 +28,61 @@ SIG_RE = re.compile(
 )
 
 
-def strip_noise(src):
-    out, i, n = [], 0, len(src)
+def strip_noise(src, keep_literals=False):
+    """Blank out comments, and (unless keep_literals) the CONTENTS of string/char literals.
+
+    LENGTH-PRESERVING: every masked character becomes a space and newlines survive, so an index
+    into the result is the same index in `src`. That is what lets methods() parse structure from
+    the literal-blanked text while taking the body it compares from the literal-preserving one.
+
+    Two maskings are needed because they answer different questions. Structure must not see a `{`
+    or `;` inside a string literal, or brace-matching walks off the end of the method. Comparison
+    must not see comments, or rewording a javadoc marks every method in the file as changed. But
+    comparison MUST see literal contents: blanking them made `return "foo"` and `return ""`
+    normalize identically, so a method whose only change was its returned string was reported as
+    unchanged and never fuzzed at all (github issue #3 — the tool printed "0 changed methods").
+    """
+    out = list(src)
+    i, n = 0, len(src)
     while i < n:
         c, two = src[i], src[i:i + 2]
         if two == "//":
-            j = src.find("\n", i); i = n if j < 0 else j; continue
+            j = src.find("\n", i)
+            j = n if j < 0 else j
+            for k in range(i, j):
+                out[k] = " "
+            i = j
+            continue
         if two == "/*":
-            j = src.find("*/", i + 2); i = n if j < 0 else j + 2; continue
-        if c == '"':
+            j = src.find("*/", i + 2)
+            j = n if j < 0 else j + 2
+            for k in range(i, j):
+                if out[k] != "\n":
+                    out[k] = " "
+            i = j
+            continue
+        if c == '"' or c == "'":
             j = i + 1
-            while j < n and src[j] != '"':
+            while j < n and src[j] != c:
                 j += 2 if src[j] == "\\" else 1
-            out.append('""'); i = j + 1; continue
-        if c == "'":
-            j = i + 1
-            while j < n and src[j] != "'":
-                j += 2 if src[j] == "\\" else 1
-            out.append("' '"); i = j + 1; continue
-        out.append(c); i += 1
+            if not keep_literals:
+                for k in range(i + 1, min(j, n)):
+                    if out[k] != "\n":
+                        out[k] = " "
+            i = j + 1
+            continue
+        i += 1
     return "".join(out)
 
 
 def methods(src):
     """name/paramCount -> (normalized_body, pre_modifiers, params_str). Top-level methods only."""
+    # `clean` drives every structural decision (signature regex, brace depth, brace matching);
+    # `literal` is the same text with string/char contents intact and is what the recorded body is
+    # sliced from, so a literal-only change still counts as a change. Both are length-preserving,
+    # so an offset found in one indexes the other.
     clean = strip_noise(src)
+    literal = strip_noise(src, keep_literals=True)
     out = {}
     for m in SIG_RE.finditer(clean):
         name = m.group("name")
@@ -87,7 +117,7 @@ def methods(src):
         base, k = key, 0
         while key in out:
             k += 1; key = f"{base}#{k}"
-        out[key] = (re.sub(r"\s+", " ", clean[brace:j + 1]).strip(),
+        out[key] = (re.sub(r"\s+", " ", literal[brace:j + 1]).strip(),
                     m.group("pre").strip(), params)
     return out
 

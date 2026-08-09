@@ -177,12 +177,21 @@ Two footnotes on Jazzer, both found the hard way:
 `reports/<project>/auto-fuzz-report.md` opens with the class and method counts and a summary table,
 then one row per method. From the demo:
 
-| Method | Kind | Verdict | Reason | Inputs (fail) | Branch orig | Branch ref | Confidence | Why |
-|---|---|---|---|---|---|---|---|---|
-| `Grader.grade` | scalar | **EQUIVALENT** | - | 8 (0) | 6/6 | 6/6 | all 12 branches exercised | no divergence found in 30s of fuzzing |
-| `Grader.passes` | scalar | **DIVERGENT** | - | 5 (2) | 4/4 | 2/2 | witnessed | **exception type** — on `[-6874]` original throws IllegalArgumentException, refactored returns false |
-| `Grader.total` | object | **EQUIVALENT** | - | 4 (0) | 3/4 | 3/4 | 6/8 branches (75%) | no divergence found in 30s of fuzzing |
-| `Simple.foo` | scalar | **SKIP** | never ran | 3 (0) | 0/0 | 0/0 | - | refactored: neither autofuzz nor constructor synthesis built `SimpleRefactored` |
+| Method | Kind | Verdict | Reason | Inputs | Compared | Branch orig | Branch ref | Confidence | Why |
+|---|---|---|---|---:|---:|---|---|---|---|
+| `Grader.grade` | scalar | **EQUIVALENT** | - | 42,134 | 42,134 | 6/6 | 6/6 | all 12 branches exercised | no divergence found in 30s of fuzzing |
+| `Grader.passes` | scalar | **DIVERGENT** | - | 7 | 7 | 4/4 | 2/2 | witnessed | **exception type** — on `[-5962]` original throws IllegalArgumentException, refactored returns false |
+| `Grader.total` | object | **EQUIVALENT** | - | 40,001 | 40,001 | 3/4 | 3/4 | 6/8 branches (75%) | no divergence found in 30s of fuzzing |
+| `Simple.foo` | scalar | **SKIP** | never ran | 695,451 | 0 | 0/0 | 0/0 | - | refactored: neither autofuzz nor constructor synthesis built `SimpleRefactored` |
+
+**How much testing the budget bought.** `Inputs` is every input the fuzzer produced in the fixed
+`--duration`; `Compared` is only those that got as far as invoking **both** versions. The summary
+totals both. The gap is the point: `Simple.foo` above tried 695,451 inputs and completed **zero**
+comparisons, because the refactored receiver cannot be constructed — the fuzzer worked hard and
+learned nothing. Neither number is visible in surefire's "Tests run", which counts JUnit invocations
+(each seed once, plus a single call for the whole fuzzing session), so the engine counts them itself
+and prints them at JVM exit. A DIVERGENT usually shows a small count because the first witnessed
+mismatch stops the run.
 
 **There are exactly three verdicts.**
 
@@ -220,6 +229,48 @@ grep -a -A6 -F "[DIFFERENTIAL MISMATCH]" target/fuzz-logs/<project>/<Class>_<met
 The block prints `methodArgs` (the reproducing input, non-printables escaped) and both outcomes.
 Use `grep -a`: fuzz logs contain raw bytes, and without it grep treats them as binary and silently
 prints nothing.
+
+## Regression suite for reported bugs
+
+```bash
+python3 scripts/check_issues.py            # 5 cases, ~4 minutes at 15s/method
+python3 scripts/check_issues.py --case issue1-wrapped-exception
+```
+
+Each case in [`examples/issues/`](examples/issues/) is a minimal `original`/`refactored` pair with a
+known correct outcome, run through the real pipeline. It asserts **two** things per case — how many
+changed methods the differ found, and the verdict the fuzzer reached — because the bugs failed at
+two different stages: some produced a wrong verdict, one produced no verdict at all because the
+method was never recognised as changed. Checking verdicts alone would have scored that last one as
+"no failures".
+
+| Case | Asserts |
+|---|---|
+| `issue1-wrapped-exception` | same outer `Error`, different wrapped cause → DIVERGENT |
+| `issue2-empty-list` | a `List<Integer>` parameter is populated, not empty → DIVERGENT |
+| `issue3-string-literal` | a method whose only change is a string literal is still found → DIVERGENT |
+| `guard-comment-only` | a comment-only edit still counts as unchanged → 0 methods |
+| `guard-same-cause` | identical cause chains stay EQUIVALENT (no false positive) |
+
+The two `guard-*` cases matter as much as the rest: they stop a fix from "passing" by simply
+reporting more differences than it should.
+
+Every case writes a full differential report to `reports/issues/<case>.md`, indexed by
+`reports/issues/SUMMARY.md`, which pairs each observed outcome with the expected one — the per-case
+report says what the fuzzer concluded, only the summary says whether the reported bug is gone.
+
+The cases run **unseeded** (the seed corpus is cleared first, so no report can credit seeds it never
+used); they are behavioural assertions, not a seeding benchmark.
+
+> It builds into the `example` profile's directories, so it overwrites whatever project was built
+> there last. Rebuild yours afterwards.
+
+## What counts as a changed method
+
+A method enters the manifest when its body differs. Comments are ignored — a reworded javadoc must
+not mark every method in a file as changed — but **string and character literals are compared**, so
+`return "alpha"` vs `return "beta"` is a real change and gets fuzzed. (Literals used to be ignored
+too, which silently produced `0 changed methods` for such a pair; that was github issue #3.)
 
 ## Add your own project
 
@@ -275,7 +326,9 @@ mutate it and make the second observe a different input.
 Each side is invoked via reflection on a **3-second per-call watchdog** (a runaway input becomes a
 TIMEOUT, not a stall). DIVERGENT iff:
 
-- **exception type** differs, or
+- the **exception** differs — class *and* cause chain, so `Error(NullPointerException)` and
+  `Error(UnsupportedOperationException)` are not equal (messages are never compared: fuzzed messages
+  embed the input and would make almost everything divergent), or
 - the **return value** differs — by value for scalars/JDK types, otherwise by a structural field
   walk, because domain classes inherit identity `equals()` and would diverge on every input, or
 - **receiver state after the call** differs, and only when the two receivers started out equal.
