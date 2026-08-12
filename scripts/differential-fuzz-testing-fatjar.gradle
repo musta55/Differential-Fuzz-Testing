@@ -1,0 +1,22 @@
+gradle.rootProject {
+    afterEvaluate { root ->
+        root.tasks.register("differentialFuzzTestingFatJar", Jar) {
+            archiveClassifier = "differential-fuzz-testing"
+            archiveBaseName = root.name
+            destinationDirectory = root.layout.buildDirectory.dir("libs")
+            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+            root.allprojects.findAll { it.plugins.hasPlugin("java") }.each { proj ->
+                dependsOn proj.tasks.named("classes")
+
+                from {
+                    proj.configurations.compileClasspath
+                            .findAll { it.name.endsWith(".jar") }
+                            .collect { zipTree(it) }
+                }
+
+                from proj.sourceSets.main.output
+            }
+        }
+    }
+}
