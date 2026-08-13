@@ -265,12 +265,37 @@ used); they are behavioural assertions, not a seeding benchmark.
 > It builds into the `example` profile's directories, so it overwrites whatever project was built
 > there last. Rebuild yours afterwards.
 
-## What counts as a changed method
+## How methods are found: Using Java AST
 
-A method enters the manifest when its body differs. Comments are ignored — a reworded javadoc must
-not mark every method in a file as changed — but **string and character literals are compared**, so
-`return "alpha"` vs `return "beta"` is a real change and gets fuzzed. (Literals used to be ignored
-too, which silently produced `0 changed methods` for such a pair; that was github issue #3.)
+Method discovery, the changed/unchanged decision and parameter classification all happen in
+[`scripts/MethodExtractor.java`](scripts/MethodExtractor.java), which parses both trees with
+**[JavaParser](https://javaparser.org/) 3.28.2**. It is fetched from Maven Central on first use and
+compiled on demand, like `CovReport.java`; it is deliberately *not* a pom dependency, so it never
+reaches the fuzzing classpath.
+
+**Syntactic only, on purpose.** JavaParser is used without symbol resolution. If symbol resolution were turned on, JavaParser would throw errors or fail to parse whenever it encountered an unknown class or unresolved method, these are alseady being done later in the pruning setps. These trees routinely
+reference types that are on no classpath yet — the whole point of the later `prune` step is that
+some pairs do not compile — so anything needing resolution would fail on exactly the inputs this has
+to handle. Everything required here is syntax: which methods exist, what their bodies are, and
+whether the two sides differ.
+
+**A method is changed when its comment-free AST differs.** Printing each body through JavaParser
+with comments disabled makes the comparison immune to reformatting and comment edits, while
+preserving literals — so `return "alpha"` vs `return "beta"` is a real change. Signatures are
+compared too, so a same-arity parameter-type change is checked as well.
+
+
+- **Any method preceded by an annotation with a string argument was silently dropped.** The regex
+  matched `@SuppressWarnings("...")` as a method whose `params` group ran past its own closing paren
+  into the *real* signature below it; since `finditer` does not revisit consumed text, that method
+  was never seen again. On apex-core this cost **three genuinely changed methods**, including two
+  rewritten `toArray` implementations — never fuzzed, and never reported as missing.
+- **Literal-only changes were invisible** (github issue #3), because literals had to be blanked to
+  keep `{` inside a string from breaking brace matching.
+
+A parser answers all of that by construction. Switching cost nothing on the existing corpora: the
+demo produces byte-identical verdicts, and apex-core went from 83 to **86** changed methods — the
+three the regex had been swallowing, with none lost.
 
 ## Add your own project
 
@@ -296,7 +321,8 @@ scripts/
   extract_seeds.py                       (5a) per-test-case constants -> seed-values.json
   run_project.py                         (6) fuzz + differential coverage -> report
   unit_coverage.py                       optional: what the unit suite alone covers, per method
-  auto_select.py                         shared Java-parsing helpers
+  MethodExtractor.java                   (1a) JavaParser AST: find + diff + classify methods
+  auto_select.py                         package lookup + top-level type spans (raw-text helpers)
   CovReport.java                         per-method branch/line extractor (reads Jazzer's .exec)
   setup_deps.sh                          install a project's built classes as local Maven jars
   setup_evosuite.sh                      fetch EvoSuite + install its runtime locally

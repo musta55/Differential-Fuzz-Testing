@@ -10,8 +10,9 @@ INPUT CONTRACT (decoupled — no RefAgent/results layout assumed):
   Files are paired by their path relative to each tree root. A file present only in the
   refactored tree (a brand-new class) is skipped: there is no original to diff against.
 
-For each paired class we find the methods whose body changed, keep the AUTO_FUZZABLE ones
-(scalar/String/array args, top-level — see auto_select.classify), and:
+For each paired class, scripts/MethodExtractor.java (JavaParser) finds the methods that changed —
+comparing comment-free ASTs, so reformatting and comment edits do not count but literal and
+signature edits do — and classifies each parameter list as scalar or object. For those we:
   - copy the original file  -> src/test/Dataset/<project>/<pkg>/<Class>Original.java   (renamed)
   - copy the refactored file -> src/test/Dataset/<project>/<pkg>/<Class>Refactored.java (renamed)
   - record a manifest entry {id, original FQN, refactored FQN, method, params, static}
@@ -20,49 +21,23 @@ Writes src/test/resources/<project>/manifest.json (read at fuzz time by GenericD
 The whole-word rename also fixes self-references (e.g. `VersionInfo x = new VersionInfo()`).
 """
 import argparse
+import json
 import os
 import re
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from auto_select import (  # noqa: E402
-    methods, classify, package, top_level_type_spans, strip_spans, all_scalar,
+    package, top_level_type_spans, strip_spans,
 )
 
 MODULE = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-
-# Manifest param types must be FQNs the engine's classFor() can Class.forName().
-# Primitives + primitive arrays pass through (classFor handles those literally);
-# String + the boxed wrappers need java.lang.* so Class.forName resolves them.
-JAVA_FQN = {
-    "String": "java.lang.String",
-    "Integer": "java.lang.Integer", "Long": "java.lang.Long",
-    "Short": "java.lang.Short", "Byte": "java.lang.Byte",
-    "Character": "java.lang.Character", "Boolean": "java.lang.Boolean",
-    "Float": "java.lang.Float", "Double": "java.lang.Double",
-}
-
-
-def java_type(t):
-    return JAVA_FQN.get(t, t)
 
 
 def rename(text, cls, suffix):
     """Whole-word rename of the class's own name (handles decl, ctors, self-refs, .class)."""
     return re.sub(r"\b" + re.escape(cls) + r"\b", cls + suffix, text)
-
-
-def pair_files(orig_root, ref_root):
-    """Yield (rel_path, orig_abs, ref_abs) for every .java present in BOTH trees."""
-    for dirpath, _, files in os.walk(ref_root):
-        for f in files:
-            if not f.endswith(".java"):
-                continue
-            ref_abs = os.path.join(dirpath, f)
-            rel = os.path.relpath(ref_abs, ref_root)
-            orig_abs = os.path.join(orig_root, rel)
-            if os.path.isfile(orig_abs):
-                yield rel, orig_abs, ref_abs
 
 
 def _norm(text):
@@ -102,6 +77,56 @@ def secondary_types(orig_txt, impr_txt, cls):
     return shared_o, shared_n, conflict
 
 
+JAVAPARSER = "com.github.javaparser:javaparser-core:3.28.2"
+JP_JAR = os.path.expanduser(
+    "~/.m2/repository/com/github/javaparser/javaparser-core/3.28.2/javaparser-core-3.28.2.jar")
+GSON_JAR = os.path.expanduser("~/.m2/repository/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar")
+
+
+def extractor_classpath():
+    """Build scripts/MethodExtractor.java on demand, the way run_project.py builds CovReport."""
+    if not os.path.isfile(JP_JAR):
+        print(f"  fetching {JAVAPARSER}")
+        subprocess.run([os.path.join(MODULE, "mvnw"), "-q", "dependency:get",
+                        f"-Dartifact={JAVAPARSER}"], cwd=MODULE, capture_output=True)
+    if not os.path.isfile(JP_JAR):
+        sys.exit(f"could not obtain {JAVAPARSER}; check network access to Maven Central")
+    out = os.path.join(MODULE, "target/parsetool")
+    os.makedirs(out, exist_ok=True)
+    cp = os.pathsep.join([JP_JAR, GSON_JAR])
+    src = os.path.join(MODULE, "scripts/MethodExtractor.java")
+    cls = os.path.join(out, "MethodExtractor.class")
+    if not os.path.isfile(cls) or os.path.getmtime(src) > os.path.getmtime(cls):
+        r = subprocess.run(["javac", "-cp", cp, "-d", out, src],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            sys.exit("could not compile MethodExtractor:\n" + r.stdout + r.stderr)
+    return os.pathsep.join([out, cp])
+
+
+def extract(orig_root, ref_root):
+    """Run the AST extractor and return {relPath: pairInfo}.
+
+    Method discovery, the changed/unchanged decision and parameter classification all happen in
+    MethodExtractor now. The regex parser this replaced silently dropped any method preceded by an
+    annotation with a string argument: SIG_RE matched `SuppressWarnings` with a `params` group that
+    ran on past the closing paren into the real signature, and because finditer does not overlap,
+    the method inside that span was never seen again. That cost apex-core three genuinely changed
+    methods, including two rewritten `toArray` implementations.
+    """
+    cp = extractor_classpath()
+    out = os.path.join(MODULE, "target", "ast-methods.json")
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    r = subprocess.run(["java", "-cp", cp, "MethodExtractor", orig_root, ref_root, out],
+                       capture_output=True, text=True)
+    if r.returncode != 0 or not os.path.isfile(out):
+        sys.exit("MethodExtractor failed:\n" + r.stdout + r.stderr)
+    data = json.load(open(out))
+    for prob in data.get("problems", [])[:5]:
+        print(f"  parse problem: {prob[:160]}", file=sys.stderr)
+    return data
+
+
 def main(project, orig_root, ref_root):
     orig_root = os.path.abspath(orig_root)
     ref_root = os.path.abspath(ref_root)
@@ -116,38 +141,34 @@ def main(project, orig_root, ref_root):
     written_secondaries = {}  # fqn -> normalized content, so a shared helper is emitted once
     n_classes = 0
 
-    for rel, orig_p, ref_p in sorted(pair_files(orig_root, ref_root)):
-        cls = os.path.splitext(os.path.basename(ref_p))[0]  # filename stem == public class name
+    ast = extract(orig_root, ref_root)
+
+    for pair in ast["pairs"]:
+        rel = pair["relPath"]
+        ref_p = os.path.join(ref_root, rel)
+        orig_p = os.path.join(orig_root, rel)
+        cls = pair["primaryType"]
+        pkg = pair["package"]
         orig_txt = open(orig_p, encoding="utf-8", errors="replace").read()
         impr_txt = open(ref_p, encoding="utf-8", errors="replace").read()
-        pkg = package(ref_p)
-        if not pkg:
-            continue
 
-        # Fix C: pull shared secondary top-level classes out of the snapshot files so they
-        # don't collide. Parse the PRIMARY class in isolation (stripped text) so helper-class
-        # methods aren't misattributed to it either.
+        # Pull shared secondary top-level classes out of the snapshot files so the two renamed
+        # copies don't collide on them. Still span-based on the raw text: the AST tells us WHICH
+        # types are secondary, but the snapshots are written by editing the original source so they
+        # keep their formatting, which printing the AST back out would not.
         o_secs, n_secs, conflict = secondary_types(orig_txt, impr_txt, cls)
         if conflict:
             print(f"  skip {rel}: a secondary top-level class differs between trees "
                   f"(needs per-side handling)", file=sys.stderr)
             continue
+        # The snapshot bodies: the original source minus the relocated secondary types.
         orig_primary = strip_spans(orig_txt, o_secs)
         impr_primary = strip_spans(impr_txt, n_secs)
 
-        o = methods(orig_primary)
-        n = methods(impr_primary)
-
         class_entries = []
-        for key in n:
-            if key not in o or o[key][0] == n[key][0]:
-                continue  # unchanged or added-only
-            name = key.split("/")[0].split("#")[0]
-            is_ctor = (name == cls)  # A2: constructors are tested as first-class units now
-            ok, is_static, types = classify(n[key][1], n[key][2])
-            if not ok:
-                continue  # signature could not be parsed at all (not "takes an object")
-            mid = f"{cls}.ctor" if is_ctor else f"{cls}.{name}"
+        for m in pair["methods"]:
+            is_ctor = m["ctor"]
+            mid = f"{cls}.ctor" if is_ctor else f"{cls}.{m['simpleName']}"
             if mid in seen:
                 seen[mid] += 1
                 mid = f"{mid}_{seen[mid]}"
@@ -157,20 +178,23 @@ def main(project, orig_root, ref_root):
                 "id": mid,
                 "original": f"{pkg}.{cls}Original",
                 "refactored": f"{pkg}.{cls}Refactored",
-                "method": "<init>" if is_ctor else name,
+                "method": m["name"],
                 # Source spellings, advisory: the engine resolves by name+arity against the
                 # compiled class and reads real types by reflection (see GenericDifferential).
-                "params": [java_type(t) for t in types],
-                "arity": len(types),
-                "static": False if is_ctor else is_static,
+                "params": m["params"],
+                "arity": m["arity"],
+                "static": m["static"],
                 # What the engine will need to build the arguments. `object` means the run
                 # depends on Jazzer autofuzz; `scalar` is the classic direct-from-bytes path.
-                "kind": "ctor" if is_ctor else ("scalar" if all_scalar(types) else "object"),
+                "kind": m["kind"],
+                # Why the differ considered this method changed — "body", or a signature change
+                # that the previous body-only comparison could not see at all.
+                "change": m["change"],
                 "source": {
                     "class": cls,
                     "package": pkg,
-                    "original": os.path.relpath(orig_p, orig_root),
-                    "refactored": os.path.relpath(ref_p, ref_root),
+                    "original": rel,
+                    "refactored": rel,
                 },
             }
             if is_ctor:
