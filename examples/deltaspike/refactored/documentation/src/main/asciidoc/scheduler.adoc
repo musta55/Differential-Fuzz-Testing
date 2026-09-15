@@ -1,0 +1,294 @@
+:moduledeps: core, container-control
+:moduleconf: impl:org.apache.deltaspike.scheduler.impl.SchedulerBaseConfig
+
+= Scheduler Module
+
+:Notice: Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. See the NOTICE file distributed with this work for additional information regarding copyright ownership. The ASF licenses this file to you under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at. http://www.apache.org/licenses/LICENSE-2.0 . Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR  CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+
+== Overview
+The Scheduler module provides simple integration with Quartz v2 (default) or any other scheduler that supports cron-expressions for job-classes.
+
+== Project Setup
+The configuration information provided here is for Maven-based projects and it assumes that you have already declared the DeltaSpike version and DeltaSpike Core module for your projects, as detailed in <<configure#, Configure DeltaSpike in Your Projects>>. For Maven-independent projects, see <<configure#config-maven-indep,Configure DeltaSpike in Maven-independent Projects>>.
+
+=== 1. Declare Scheduler Module Dependencies
+Add the Scheduler module to the list of dependencies in the project `pom.xml` file using this code snippet:
+
+[source,xml]
+----
+<dependency>
+    <groupId>org.apache.deltaspike.modules</groupId>
+    <artifactId>deltaspike-scheduler-module-api</artifactId>
+    <version>${deltaspike.version}</version>
+    <scope>compile</scope>
+</dependency>
+
+<dependency>
+    <groupId>org.apache.deltaspike.modules</groupId>
+    <artifactId>deltaspike-scheduler-module-impl</artifactId>
+    <version>${deltaspike.version}</version>
+    <scope>runtime</scope>
+</dependency>
+----
+
+Or if you're using Gradle, add these dependencies to your `build.gradle`:
+
+[source]
+----
+     runtime 'org.apache.deltaspike.modules:deltaspike-scheduler-module-impl'
+     compile 'org.apache.deltaspike.modules:deltaspike-scheduler-module-api'
+----
+
+=== 2. Declare External Dependencies
+
+By default, the Scheduler module looks to integrate with Quartz. If this is the scheduler you would like to use, add Quartz 2.x to the list of project dependencies using this code snippet:
+
+[source,xml]
+----
+<dependency>
+    <groupId>org.quartz-scheduler</groupId>
+    <artifactId>quartz</artifactId>
+    <version>2.3.0</version>
+</dependency>
+----
+
+Or if you're using Gradle, add these dependencies to your `build.gradle`:
+
+[source]
+----
+     compile 'org.quartz-scheduler:quartz'
+----
+
+=== 3. Declare Container Control dependency
+
+Scheduled jobs can have built-in CDI contexts started for the duration of their execution using `@Scheduled#startScopes` which internally uses the <<container-control#, Container Control module>>. The dependency on the API and the appropriate implementation needs to be declared manually even if the feature is not used. An example for the Weld implementation:
+
+[source,xml]
+----
+<dependency>
+    <groupId>org.apache.deltaspike.cdictrl</groupId>
+    <artifactId>deltaspike-cdictrl-api</artifactId>
+    <version>${deltaspike.version}</version>
+    <scope>compile</scope>
+</dependency>
+
+<dependency>
+    <groupId>org.apache.deltaspike.cdictrl</groupId>
+    <artifactId>deltaspike-cdictrl-weld</artifactId>
+    <version>${deltaspike.version}</version>
+    <scope>runtime</scope>
+</dependency>
+----
+
+Of ir you're using Gradle:
+
+[source]
+[source]
+----
+dependencies {
+    runtime 'org.apache.deltaspike.cdictrl:deltaspike-cdictrl-weld'
+    compile 'org.apache.deltaspike.cdictrl:deltaspike-cdictrl-api'
+}
+----
+
+== @Scheduled with org.quartz.Job or java.lang.Runnable
+
+Just annotate your Quartz-Jobs with `@Scheduled` and they will get
+picked up and passed to the scheduler automatically (during the
+bootstrapping process).
+
+.Scheduled task based on org.quartz.Job
+[source,java]
+---------------------------------------------------------------------------------
+@Scheduled(cronExpression = "0 0/10 * * * ?")
+public class CdiAwareQuartzJob implements org.quartz.Job
+{
+    @Inject
+    private MyService service;
+
+    @Override
+    public void execute(JobExecutionContext context) throws JobExecutionException
+    {
+        //...
+    }
+}
+---------------------------------------------------------------------------------
+
+As an alternative it's possible to annotate an implementation of `java.lang.Runnable` (since DeltaSpike v1.5.3):
+
+.Scheduled task based on java.lang.Runnable
+[source,java]
+---------------------------------------------------------------------------------
+@Scheduled(cronExpression = "0 0/10 * * * ?")
+public class CdiAwareRunnableJob implements java.lang.Runnable
+{
+    @Inject
+    private MyService service;
+
+    @Override
+    public void run()
+    {
+        //...
+    }
+}
+---------------------------------------------------------------------------------
+
+Behind the scenes DeltaSpike registers an adapter for Quartz which just delegates to the `run`-method once the adapter gets called by Quartz.
+Technically you end up with almost the same, just with a reduced API for implementing (all) your scheduled jobs.
+Therefore the main difference is that your code is independent of Quartz-classes.
+However, you need to select `org.quartz.Job` or `java.lang.Runnable` for all your scheduled-tasks, bot not both!
+
+In such scheduled-tasks CDI based dependency-injection is enabled.
+Furthermore, the request- and session-scope get started (and stopped)
+per job-execution. Therefore, the container-control module (of
+DeltaSpike) is required. That can be controlled via
+`@Scheduled#startScopes` (possible values: all scopes supported by the
+container-control module as well as `{}` for 'no scopes').
+
+With 'false' for `@Scheduled#onStartup`, it is even possible to
+schedule/install jobs dynamically.
+
+The following example shows how to use it, if you are using `org.quartz.Job` (and not `java.lang.Runnable`).
+
+.Example
+[source,java]
+-------------------------------------------------------------------------------------
+@ApplicationScoped
+public class ProjectStageAwareSchedulerController
+{
+    @Inject
+    private Scheduler<Job> jobScheduler;
+
+    @Inject
+    private ProjectStage projectStage; 
+
+    public void registerJobs()
+    {
+        if (ProjectStage.Production.equals(this.projectStage))
+        {
+            //see 'false' for @Scheduled#onStartup
+            this.jobScheduler.registerNewJob(ManualCdiAwareQuartzJob.class);
+        }
+    }
+
+    @Scheduled(cronExpression = "0 0/10 * * * ?", onStartup = false)
+    public class ManualCdiAwareQuartzJob implements org.quartz.Job
+    {
+        @Inject
+        private MyService service;
+ 
+        @Override
+        public void execute(JobExecutionContext context) throws JobExecutionException
+        {
+            //...
+        }
+    }
+}
+-------------------------------------------------------------------------------------
+
+== Configurable CRON expressions
+
+In some cases it might be useful to configure a cron-expression e.g. per Project-Stage.
+Therefore, DeltaSpike (v1.6.0+) allows to use keys instead of hardcoded expressions.
+
+In the previous examples we had e.g. `@Scheduled(cronExpression = "0 0/10 * * * ?")`.
+Instead of hardcoding it that way, it's possible to use e.g. `@Scheduled(cronExpression = "{myCronExpression}")` and
+in one of the active config-sources used by DeltaSpike a concrete expression can be defined e.g. via `myCronExpression=0 0/10 * * * ?`.
+Using e.g. `myCronExpression.Development=0 0/5 * * * ?` would allow to change the configured expression for Project-Stage development.
+
+== Manual Scheduler Control
+
+The SPI allows to control the scheduler (or integrate any other
+compatible scheduler as an alternative to Quartz2)
+
+Via standard injection like
+
+[source,java]
+------------------------------------
+@Inject
+private Scheduler<Job> jobScheduler;
+------------------------------------
+
+it is possible to manually start/stop the scheduler,
+pause/resume/interrupt/check scheduled jobs, register jobs manually or
+start a job once (without registering it permanently).
+
+**Attention**: To use a typed injection-point and avoid deployment failure with some versions of Weld, you must use
+
+[source,java]
+------------------------------------------------------------------
+public class QuartzSchedulerProducer
+{
+    @Produces
+    @ApplicationScoped
+    protected Scheduler<Job> produceScheduler(Scheduler scheduler)
+    {
+        return scheduler;
+    }
+}
+------------------------------------------------------------------
+
+or
+
+[source,xml]
+-----------------------------------------------------------------------------
+<alternatives>
+  <class>org.apache.deltaspike.scheduler.impl.QuartzSchedulerProducer</class>
+</alternatives>
+-----------------------------------------------------------------------------
+
+== Manual scheduling
+
+If the SPI provided by `org.apache.deltaspike.scheduler.spi.Scheduler` doesn't provide a method you are looking for,
+you can use `#unwrap` to access the underlying scheduler.
+Per default DeltaSpike uses an implementation of `org.quartz.Scheduler`.
+Therefore, it's possible to inject `org.apache.deltaspike.scheduler.spi.Scheduler` and use it like in the following example:
+
+[source,java]
+----------------------------------------------------------------------------------------------
+public class ManualJobScheduler
+{
+    @Inject
+    private Scheduler<Job> scheduler;
+
+    @Override
+    public void scheduleJob(JobDetail jobDetail, Trigger trigger) throws SchedulerException
+    {
+        this.scheduler.unwrap(org.quartz.Scheduler.class).scheduleJob(jobDetail, trigger);
+    }
+}
+----------------------------------------------------------------------------------------------
+
+With that it's e.g. possible to schedule quartz-jobs based on the same quartz-job(-class), but with different triggers,...
+Also manually scheduled jobs benefit from DeltaSpike features like the support of `@Inject` in the job-instances.
+
+== Execute java.lang.Runnable with ManagedExecutorService
+
+If you would like to use e.g. the `ManagedExecutorService` (with EE7+) to run the jobs,
+you can provide a custom adapter by adding e.g.
+`deltaspike.scheduler.runnable-adapter-class=mypackage.DelegatingJobRunnableAdapter` to `META-INF/apache-deltaspike.properties`.
+Such an adapter just needs to implement `org.quartz.Job` and in case of EE7+ inject e.g. `ManagedExecutorService` as shown in the following example:
+
+[source,java]
+---------------------------------------------------------------------------------
+public class DelegatingJobRunnableAdapter implements java.lang.Runnable
+{
+    @Resource
+    private ManagedExecutorService managedExecutorService;
+
+    @Override
+    public void run()
+    {
+        Class<? extends Runnable> jobClass =
+            ClassUtils.tryToLoadClassForName(context.getJobDetail().getKey().getName(), Runnable.class);
+
+        Runnable runnableBean = BeanProvider.getContextualReference(jobClass);
+        managedExecutorService.execute(runnableBean);
+    }
+}
+---------------------------------------------------------------------------------
+
+== Custom Scheduler
+
+It is possible to replace the default integration with Quartz. Any scheduler that supports cron-expressions for job-classes can be used.
+For more information, see link:https://deltaspike.apache.org/javadoc/{latestStable}/org/apache/deltaspike/scheduler/spi/Scheduler.html[Scheduler javadoc].

@@ -1,0 +1,108 @@
+:moduledeps: core
+
+= Proxy Module
+
+:Notice: Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. See the NOTICE file distributed with this work for additional information regarding copyright ownership. The ASF licenses this file to you under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at. http://www.apache.org/licenses/LICENSE-2.0 . Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR  CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+
+== Overview
+The Proxy Module provides a simple CDI based wrapper for creating dynamic proxies that can be used within other extensions. +
+The benefit of the DeltaSpike Proxy Module (compared to Javassist or any library) is that the DeltaSpike proxies will execute CDI interceptors. +
+The Proxy Module also provides the 'DeltaSpikeProxyContextualLifecycle', which enables you to dynamically register a proxy as CDI bean via the DeltaSpike 'BeanBuilder'.
+
+IMPORTANT: Currently CDI Interceptors applied via @Interceptors, @Intercepted and @Decorator are not supported by our proxies!
+
+=== 1. Declare Proxy Module Dependencies
+
+Add the Proxy module to the list of dependencies in the project `pom.xml` file using this code snippet:
+
+[source,xml]
+----
+<dependency>
+    <groupId>org.apache.deltaspike.modules</groupId>
+    <artifactId>deltaspike-proxy-module-api</artifactId>
+    <version>${deltaspike.version}</version>
+    <scope>compile</scope>
+</dependency>
+
+<dependency>
+    <groupId>org.apache.deltaspike.modules</groupId>
+    <artifactId>deltaspike-proxy-module-impl-asm</artifactId>
+    <version>${deltaspike.version}</version>
+    <scope>runtime</scope>
+</dependency>
+----
+
+Or if you're using Gradle, add these dependencies to your `build.gradle`:
+
+[source]
+----
+     runtime 'org.apache.deltaspike.modules:deltaspike-proxy-module-impl'
+     compile 'org.apache.deltaspike.modules:deltaspike-proxy-module-api'
+----
+
+The currently provided implementation is a wrapper for ASM 5, which gets shaded into the implementation JAR.
+
+=== 2. Extend `DeltaSpikeProxyFactory`
+
+The key to making the proxy module work is to provide an implementation of `DeltaSpikeProxyFactory` which will do your proxy work for you. +
+DeltaSpike ships 3 implementations which demonstrates how its meant to work: +
+
+- org.apache.deltaspike.partialbean.impl.PartialBeanProxyFactory
+- org.apache.deltaspike.proxy.util.EnableInterceptorsProxyFactory
+- org.apache.deltaspike.jsf.impl.injection.proxy.ConverterAndValidatorProxyFactory
+
+=== 3. Using `@EnableInterceptors`
+
+`@EnableInterceptors` allows you to enable your bean interceptors for @Produces, which is not supported via the CDI API. +
+Both interceptors on method and class level are supported.
+
+[source,java]
+--------------------------------------
+@MyCustomInterceptor
+public SomeServiceImpl implements SomeService
+{
+    @Transactional
+    public void doSomething()
+    {
+        ....
+    }
+}
+--------------------------------------
+
+[source,java]
+--------------------------------------
+@Produces
+@EnableInterceptors
+public SomeService produce()
+{
+    return new SomeServiceImpl();
+}
+--------------------------------------
+
+=== 4. Using `EnableInterceptorsProxyFactory`
+
+`@EnableInterceptors` is just a API for producers which is built on `EnableInterceptorsProxyFactory`. +
+With `EnableInterceptorsProxyFactory` you can just proxy an existing object and let it execute CDI interceptors, if they are defined on the given object class.
+
+[source,java]
+--------------------------------------
+@MyCustomInterceptor
+public SomeServiceImpl implements SomeService
+{
+    @Transactional
+    public void doSomething()
+    {
+        ....
+    }
+}
+--------------------------------------
+
+[source,java]
+--------------------------------------
+public void init()
+{
+    SomeServiceImpl myService = new SomeServiceImpl();
+    myService = EnableInterceptorsProxyFactory.wrap(myService, BeanManagerProvider.getInstance().getBeanManager());
+    myService.doSomething(); // will execute the interceptors
+}
+--------------------------------------

@@ -1,0 +1,108 @@
+= DeltaSpike ProjectStage
+
+:Notice: Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. See the NOTICE file distributed with this work for additional information regarding copyright ownership. The ASF licenses this file to you under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at. http://www.apache.org/licenses/LICENSE-2.0 . Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR  CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+
+== Introduction
+
+Project stages allow to use implementations depending on the current
+environment. For example, you can implement a bean which creates sample-data for
+system tests which gets activated only in case of ProjectStage
+`SystemTest`.
+
+_Besides custom ProjectStages_ it is possible to use the following
+pre-defined ProjectStages:
+
+* UnitTest
+* Development
+* SystemTest
+* IntegrationTest
+* Staging
+* Production
+
+The core provides a pluggable and type-safe approach for using project
+stages in a project (it is also used within the framework). Furthermore,
+`@Exclude` allows use of, for example, implementations annotated with
+`javax.enterprise.inject.Alternative` for specific ProjectStages.
+Besides the out-of-the-box ProjectStages it is possible to implement
+_custom but type-safe_ ProjectStages which will be exposed by
+DeltaSpike.
+
+Resolving and using the ProjectStage:
+
+[source,java]
+-------------------------------------------------------------------------------
+@Inject
+private ProjectStage projectStage;
+
+//...
+
+boolean isDevProjectStage = ProjectStage.Development.equals(this.projectStage);
+-------------------------------------------------------------------------------
+
+
+== Custom Project Stages
+
+It is possible to provide custom project stage implementations.
+Therefore, you have to provide an implementation of the
+`ProjectStageHolder` interface. In this class you nest the custom
+ProjectStage implementations which have to be
+`public static final class` and it is required to extend `ProjectStage`.
+It is required to provide a `public static final` instance even though,
+you will not use it directly.
+
+ProjectStageHolder for custom project stage implementations:
+
+[source,java]
+-----------------------------------------------------------------------------------------
+public class CustomProjectStageHolder implements ProjectStageHolder
+{
+    public static final class CustomProjectStage extends ProjectStage
+    {
+        private static final long serialVersionUID = 1029094387976167179L;
+    }
+
+    public static final CustomProjectStage CustomProjectStage = new CustomProjectStage();
+}
+-----------------------------------------------------------------------------------------
+
+Configure your custom `ProjectStageHolder` in
+`META-INF/services/org.apache.deltaspike.core.api.projectstage.ProjectStageHolder`.
+
+NOTE: The file has to provide the _fully qualified_ class name of the custom
+implementation of the `ProjectStageHolder` interface.
+
+Usage of a custom project stage:
+
+[source,java]
+----------------------------------------------------------------------------
+ProjectStage customProjectStage;
+customProjectStage = ProjectStage.valueOf("CustomProjectStage");
+//or
+customProjectStage = CustomProjectStageHolder.CustomProjectStage;
+//or
+@Exclude(ifProjectStage = CustomProjectStageHolder.CustomProjectStage.class)
+----------------------------------------------------------------------------
+
+
+== Setting the active ProjectStage
+
+For setting the ProjectStage which shall get used in your application
+you can specify it in a few ways. The underlying mechanism used to
+determine the string is the ConfigResolver.
+
+.Example
+------------------------------------------------
+-Dorg.apache.deltaspike.ProjectStage=Development
+------------------------------------------------
+
+== ProjectStageProducer (for Third-party Portable Extensions)
+
+`ProjectStageProducer` provides the producer method which allows to
+inject the current ProjectStage. However, in some cases it is needed to
+use ProjectStages also during the bootstrapping process of the CDI
+container and you can not use injection. In such cases you can use
+`ProjectStageProducer.getInstance().getProjectStage()` to resolve the
+current ProjectStage. This helper also contains helpers for unit-tests
+- e.g. `#setProjectStage`. However, those methods should not be needed
+for users (we just need them for testing different ProjectStage
+scenarios).
