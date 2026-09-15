@@ -104,7 +104,7 @@ def extractor_classpath():
     return os.pathsep.join([out, cp])
 
 
-def extract(orig_root, ref_root):
+def extract(project, orig_root, ref_root):
     """Run the AST extractor and return {relPath: pairInfo}.
 
     Method discovery, the changed/unchanged decision and parameter classification all happen in
@@ -117,7 +117,7 @@ def extract(orig_root, ref_root):
     cp = extractor_classpath()
     out = os.path.join(MODULE, "target", "ast-methods.json")
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    r = subprocess.run(["java", "-cp", cp, "MethodExtractor", orig_root, ref_root, out],
+    r = subprocess.run(["java", "-cp", cp, "MethodExtractor", orig_root, ref_root, out, project],
                        capture_output=True, text=True)
     if r.returncode != 0 or not os.path.isfile(out):
         sys.exit("MethodExtractor failed:\n" + r.stdout + r.stderr)
@@ -141,7 +141,7 @@ def main(project, orig_root, ref_root):
     written_secondaries = {}  # fqn -> normalized content, so a shared helper is emitted once
     n_classes = 0
 
-    ast = extract(orig_root, ref_root)
+    ast = extract(project, orig_root, ref_root)
 
     for pair in ast["pairs"]:
         rel = pair["relPath"]

@@ -74,11 +74,12 @@ public final class MethodExtractor
   public static void main(String[] args) throws IOException
   {
     if (args.length < 3) {
-      System.err.println("usage: MethodExtractor <originalRoot> <refactoredRoot> <out.json>");
+      System.err.println("usage: MethodExtractor <originalRoot> <refactoredRoot> <out.json> [<project name>]");
       System.exit(2);
     }
     Path origRoot = Paths.get(args[0]).toAbsolutePath().normalize();
     Path refRoot = Paths.get(args[1]).toAbsolutePath().normalize();
+    String project = args.length > 3 ? args[3] : "default";
 
     ParserConfiguration cfg = new ParserConfiguration()
         .setLanguageLevel(ParserConfiguration.LanguageLevel.BLEEDING_EDGE)
@@ -100,7 +101,7 @@ public final class MethodExtractor
         continue;
       }
       Map<String, Object> pair = comparePair(rel.toString().replace(File.separatorChar, '/'),
-          oCu.get(), rCu.get(), problems);
+          oCu.get(), rCu.get(), project, problems);
       if (pair != null) {
         pairs.add(pair);
       }
@@ -154,7 +155,7 @@ public final class MethodExtractor
   // ── pairing + diffing ───────────────────────────────────────────────────────
 
   private static Map<String, Object> comparePair(String rel, CompilationUnit oCu,
-      CompilationUnit rCu, List<String> problems)
+      CompilationUnit rCu, String project, List<String> problems)
   {
     String stem = rel.substring(rel.lastIndexOf('/') + 1).replaceAll("\\.java$", "");
     Optional<TypeDeclaration<?>> oPrimary = primaryType(oCu, stem);
@@ -170,6 +171,14 @@ public final class MethodExtractor
     Map<String, CallableDeclaration<?>> oMethods = callables(oPrimary.get(), stem);
     Map<String, CallableDeclaration<?>> rMethods = callables(rPrimary.get(), stem);
 
+    // Identify helper methods added in refactored version
+    List<CallableDeclaration<?>> helperMethods = new ArrayList<>();
+    for (Map.Entry<String, CallableDeclaration<?>> entry : rMethods.entrySet()) {
+      if (!oMethods.containsKey(entry.getKey())) {
+        helperMethods.add(entry.getValue());
+      }
+    }
+
     List<Map<String, Object>> methods = new ArrayList<>();
     for (Map.Entry<String, CallableDeclaration<?>> e : rMethods.entrySet()) {
       CallableDeclaration<?> rM = e.getValue();
@@ -181,6 +190,28 @@ public final class MethodExtractor
       if (change == null) {
         continue; // unchanged
       }
+
+      // 1. Extract snippet source code
+      String originalCode = oM.toString();
+      StringBuilder refBuilder = new StringBuilder(rM.toString());
+      if (!helperMethods.isEmpty()) {
+        refBuilder.append("\n// ---- helper method(s) introduced by the refactoring ----\n");
+        for (CallableDeclaration<?> helper : helperMethods) {
+          refBuilder.append(helper.toString()).append("\n\n");
+        }
+      }
+      String refactoredCode = refBuilder.toString();
+
+      // 2. Generate file name: e.g., ClassName.methodName.java
+      String filename = stem + "." + rM.getNameAsString() + ".java";
+      // 3. Save to output directories
+      try {
+        saveSnippet(Paths.get("tool/original-methods", project, filename), originalCode);
+        saveSnippet(Paths.get("tool/refactored-methods", project, filename), refactoredCode);
+      } catch (IOException ex) {
+        problems.add("Failed to save snippet " + filename + ": " + ex);
+      }
+
       methods.add(describe(rM, stem, change));
     }
     if (methods.isEmpty()) {
@@ -215,6 +246,11 @@ public final class MethodExtractor
       }
     }
     return out;
+  }
+
+  private static void saveSnippet(Path targetPath, String content) throws IOException {
+    Files.createDirectories(targetPath.getParent());
+    Files.write(targetPath, content.getBytes(StandardCharsets.UTF_8));
   }
 
   /**

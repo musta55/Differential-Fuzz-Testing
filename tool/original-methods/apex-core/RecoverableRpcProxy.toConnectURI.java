@@ -1,0 +1,3 @@
+public static URI toConnectURI(InetSocketAddress address, int rpcTimeoutMillis, long retryDelayMillis, long retryTimeoutMillis) throws Exception {
+    return new URIBuilder().setScheme("stram").setHost(address.getHostName()).setPort(address.getPort()).setParameter(RecoverableRpcProxy.QP_rpcTimeout, Integer.toString(rpcTimeoutMillis)).setParameter(RecoverableRpcProxy.QP_retryDelayMillis, Long.toString(retryDelayMillis)).setParameter(RecoverableRpcProxy.QP_retryTimeoutMillis, Long.toString(retryTimeoutMillis)).build();
+}

@@ -33,6 +33,7 @@ import shutil
 import subprocess
 import sys
 import time
+import csv
 
 MODULE = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -401,6 +402,21 @@ def write_report(path, project, man, entries, classes, rows, counts, skip_reason
             r.write(f"| `{x['id']}` | {x['kind']} | **{x['result']}** | {x.get('reason','-')} "
                     f"| {x.get('inputs', 0):,} | {x.get('cmp', 0):,} "
                     f"| {x['bo']} | {x['br']} | {x['lo']} | {x['lr']} | {x['conf']} | {x['why']} |\n")
+
+
+        csv_path = path.split(".md")[0] + ".csv"  # e.g., auto-fuzz-report.csv
+        with open(csv_path, "w", newline="", encoding="utf-8") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([
+                "Method", "Kind", "Verdict", "Reason", "Inputs", "Compared",
+                "Branch orig", "Branch ref", "Line orig", "Line ref", "Confidence", "Why"
+            ])
+            for x in rows:
+                writer.writerow([
+                    x['id'], x['kind'], x['result'], x.get('reason', '-'),
+                    x.get('inputs', 0), x.get('cmp', 0),
+                    x['bo'], x['br'], x['lo'], x['lr'], x['conf'], x['why']
+                ])
 
         div = [x for x in rows if x["result"] == "DIVERGENT"]
         if div:

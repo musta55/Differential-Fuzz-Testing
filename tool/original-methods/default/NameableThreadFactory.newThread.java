@@ -1,0 +1,11 @@
+@Override
+public Thread newThread(Runnable r) {
+    Thread t = new Thread(group, r, namePrefix + threadNumber.getAndIncrement(), 0);
+    if (t.isDaemon() != this.isDaemon) {
+        t.setDaemon(isDaemon);
+    }
+    if (t.getPriority() != Thread.NORM_PRIORITY) {
+        t.setPriority(Thread.NORM_PRIORITY);
+    }
+    return t;
+}
