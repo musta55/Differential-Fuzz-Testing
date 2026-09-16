@@ -1,0 +1,6 @@
+Method,Kind,Verdict,Reason,Inputs,Compared,Branch orig,Branch ref,Line orig,Line ref,Confidence,Why
+Car.onPostConstruct,scalar,EQUIVALENT,-,40656,40656,0/0,0/0,3/3,2/2,branchless (judge on Line),no divergence found in 30s of fuzzing
+CarRepair.onPostConstruct,scalar,EQUIVALENT,-,41940,41940,0/0,0/0,3/3,2/2,branchless (judge on Line),no divergence found in 30s of fuzzing
+InjectableResourceLiteral.location,scalar,EQUIVALENT,-,38513,37413,0/0,0/0,1/1,1/1,branchless (judge on Line),no divergence found in 30s of fuzzing
+InjectableResourceLiteral.resourceProvider,scalar,EQUIVALENT,-,39235,37905,0/0,0/0,1/1,1/1,branchless (judge on Line),no divergence found in 30s of fuzzing
+NamedLiteral.ctor,ctor,EQUIVALENT,-,47105,47105,0/0,0/0,0/3,3/3,branchless (judge on Line),no divergence found in 30s of fuzzing

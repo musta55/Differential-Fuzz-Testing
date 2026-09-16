@@ -3,9 +3,16 @@
 # Install a target project's ALREADY-BUILT classes as local Maven jars, so the
 # <Class>Original / <Class>Refactored snapshots resolve the rest of the project.
 #
-# This is the apex-core provisioning step (the -Papex-core profile depends on
-# org.apache.apex.local:apex-*:3.7.0-local, which this produces). It is decoupled
-# from any parent repo: point it at wherever you built apex-core.
+# LEGACY, apex-core ONLY. Every other project goes through scripts/project_setup.py, which
+# builds the target project, shades its modules AND their transitive dependencies into one
+# jar, and writes the profile itself — so nothing has to be installed by hand and no
+# third-party dependency has to be named in pom.xml. This script exists because apex-core's
+# profile is hand-written (kept as the worked example of what that now generates) and
+# depends on org.apache.apex.local:apex-*:3.7.0-local, which this produces.
+#
+#   For anything else:  python3 scripts/project_setup.py <name> -d <project checkout>
+#
+# It is decoupled from any parent repo: point it at wherever you built apex-core.
 #
 #   Usage: scripts/setup_deps.sh <path-to-built-apex-core>
 #          # <path> contains <module>/target/classes for: api common bufferserver engine

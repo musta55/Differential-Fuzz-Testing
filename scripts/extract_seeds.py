@@ -58,6 +58,16 @@ def literals(body):
     # assertEquals/verifyException carry the *expected output*, not an input, and seeding on a
     # return value pollutes the pool with values no parameter can take.
     body = re.sub(r"\b(assert\w*|verifyException|fail)\s*\([^;]*;", "", body)
+    return typed_literals(body)
+
+
+def typed_literals(body):
+    """Ordered typed constants in a span of Java text, with no assumption that it is a test.
+
+    Split out from literals() so scripts/source_seeds.py can mine the same constants straight from
+    project source, where the JUnit stripping above would be wrong (a project method legitimately
+    named fail() or assertX() carries inputs, not expectations).
+    """
     out = []
     for m in LITERAL.finditer(body):
         if m.group("str") is not None:

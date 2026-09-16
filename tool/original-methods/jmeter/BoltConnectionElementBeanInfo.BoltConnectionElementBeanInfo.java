@@ -1,0 +1,20 @@
+public BoltConnectionElementBeanInfo() {
+    super(BoltConnectionElement.class);
+    createPropertyGroup("connection", new String[] { "boltUri", "username", "password", "maxConnectionPoolSize" });
+    PropertyDescriptor propertyDescriptor = property("boltUri");
+    propertyDescriptor.setValue(NOT_UNDEFINED, Boolean.TRUE);
+    propertyDescriptor.setValue(DEFAULT, "bolt://localhost:7687");
+    propertyDescriptor = property("username");
+    propertyDescriptor.setValue(NOT_UNDEFINED, Boolean.TRUE);
+    propertyDescriptor.setValue(DEFAULT, "neo4j");
+    propertyDescriptor = property("password", TypeEditor.PasswordEditor);
+    propertyDescriptor.setValue(NOT_UNDEFINED, Boolean.TRUE);
+    propertyDescriptor.setValue(DEFAULT, "");
+    propertyDescriptor = property("maxConnectionPoolSize");
+    propertyDescriptor.setValue(NOT_UNDEFINED, Boolean.TRUE);
+    propertyDescriptor.setValue(DEFAULT, 100);
+    if (log.isDebugEnabled()) {
+        String descriptorsAsString = Arrays.stream(getPropertyDescriptors()).map(pd -> pd.getName() + "=" + pd.getDisplayName()).collect(Collectors.joining(", "));
+        log.debug(descriptorsAsString);
+    }
+}

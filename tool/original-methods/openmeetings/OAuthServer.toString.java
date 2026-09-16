@@ -1,0 +1,4 @@
+@Override
+public String toString() {
+    return new StringBuilder().append("OAuthServer [id=").append(id).append(", name=").append(name).append(", iconUrl=").append(iconUrl).append(", enabled=").append(enabled).append(", clientId=").append(clientId).append(", clientSecret=").append(clientSecret).append(", requestKeyUrl=").append(requestKeyUrl).append(", requestTokenUrl=").append(requestTokenUrl).append(", requestTokenAttributes=").append(requestTokenAttributes).append(", requestTokenMethod=").append(requestTokenMethod).append(", requestInfoUrl=").append(requestInfoUrl).append(", mapping=").append(mapping).append(", isDeleted()=").append(isDeleted()).append("]").toString();
+}

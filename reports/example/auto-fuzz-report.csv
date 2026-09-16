@@ -1,0 +1,5 @@
+Method,Kind,Verdict,Reason,Inputs,Compared,Branch orig,Branch ref,Line orig,Line ref,Confidence,Why
+Grader.grade,scalar,EQUIVALENT,-,24375,24375,6/6,6/6,7/7,7/7,all 12 branches exercised,no divergence found in 15s of fuzzing
+Grader.passes,scalar,DIVERGENT,-,8,8,4/4,2/2,3/3,1/1,witnessed,"**exception type** — on `[-2212]` original throws IllegalArgumentException, refactored returns false"
+Grader.total,object,EQUIVALENT,-,23328,23328,3/4,3/4,6/6,6/7,6/8 branches (75%),no divergence found in 15s of fuzzing
+Simple.ctor,ctor,DIVERGENT,-,3,3,0/0,0/0,2/2,2/2,witnessed,"**exception type** — on `[]` original returns example.SimpleOriginal@484, refactored throws Error"

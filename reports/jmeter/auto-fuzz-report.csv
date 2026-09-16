@@ -1,0 +1,6 @@
+Method,Kind,Verdict,Reason,Inputs,Compared,Branch orig,Branch ref,Line orig,Line ref,Confidence,Why
+BeanShellClient.main,object,SKIP,never ran,1,0,1/6,0/0,6/29,0/15,-,never built on both sides — no [UNBUILT] diagnostic in the log (NOT equivalence)
+BSFAssertion.getResult,object,EQUIVALENT,-,4315,4315,2/2,2/2,11/15,10/12,all 4 branches exercised,no divergence found in 15s of fuzzing
+BeanShellAssertion.getResult,object,EQUIVALENT,-,2708,2708,1/2,2/2,32/35,16/21,3/4 branches (75%),no divergence found in 15s of fuzzing
+CompareAssertion.compareTime,object,EQUIVALENT,-,3990,3990,5/10,2/8,8/15,3/13,only 7/18 branches (39%) — weak,no divergence found in 15s of fuzzing
+CompareAssertion.compareContent,object,EQUIVALENT,-,3109,3109,2/10,1/8,4/16,3/13,only 3/18 branches (17%) — weak,no divergence found in 15s of fuzzing

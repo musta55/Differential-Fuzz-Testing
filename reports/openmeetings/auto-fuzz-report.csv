@@ -1,0 +1,6 @@
+Method,Kind,Verdict,Reason,Inputs,Compared,Branch orig,Branch ref,Line orig,Line ref,Confidence,Why
+ImageConverter.convertImage,object,SKIP,structurally untestable,2,0,0/0,0/0,0/1,0/1,-,parameter type has no buildable form: org.apache.openmeetings.db.entity.file.Bas
+ImageConverter.convertDocument,object,SKIP,never ran,12574,0,2/6,0/6,7/18,0/18,-,never built on both sides — original: neither autofuzz nor constructor synthesis built java.util.Optional (NOT equivalence)
+RecordingConverter.startConversion,object,EQUIVALENT,-,4322,4322,1/10,1/2,10/38,8/22,only 2/12 branches (17%) — weak,no divergence found in 15s of fuzzing
+LibraryChartLoader.loadChart,object,EQUIVALENT,-,5967,5967,0/0,0/0,7/10,6/8,branchless (judge on Line),no divergence found in 15s of fuzzing
+LdapOptions.ctor,ctor,DIVERGENT,-,2,2,2/8,0/0,53/63,23/23,witnessed,"**constructed state: useAdminForAttrs: false vs true** — on `[{}]` original returns org.apache.openmeetings.co, refactored returns org.apache.openmeetings.co"

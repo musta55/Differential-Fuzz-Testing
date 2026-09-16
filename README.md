@@ -61,6 +61,128 @@ python3 run.py example \
 The report lands at `reports/example/auto-fuzz-report.md` — see [Reading the
 report](#reading-the-report).
 
+## Run it on your own project
+
+Nothing about a target project lives in a script. One command builds the project, generates its
+Maven profile and records it; after that the pipeline knows it by name.
+
+```bash
+# 0. Once per project: build it, shade its modules and their dependencies into one jar,
+#    write the -P<name> profile into pom.xml, record both trees in projects.json.
+python3 scripts/project_setup.py deltaspike \
+    -d           /path/to/RefAgent-reproduce/projects/before/deltaspike \
+    --original   /path/to/RefAgent-reproduce/projects/before/deltaspike \
+    --refactored /path/to/RefAgent-reproduce/projects/after/deltaspike
+
+# 1. Smoke-test the wiring before committing hours to it.
+scripts/run_tmux.sh deltaspike --max 5 --duration 15s --unit-budget 20
+
+# 2. The real run.
+scripts/run_tmux.sh deltaspike
+```
+
+`-d` is any checkout of the project, and it only supplies the **classpath** — the classes the
+snapshots reference. `--original` / `--refactored` are the two trees actually diffed and fuzzed.
+They are usually the same before/after pair, and `-d` normally points at the original.
+
+**What step 0 does.** It runs the project's own build (`mvnw`/`mvn`, `gradlew`/`gradle`, or plain
+`javac` when there is no build file), collects every jar module in the reactor and shades them plus
+their transitive third-party dependencies into one jar, then splices a profile into
+[`pom.xml`](pom.xml) pointing at it. Maven resolution does what used to be manual: the hand-written
+apex-core profile lists ten third-party libraries by name purely because `setup_deps.sh` installed
+bare module jars with no pom, so nothing was transitive.
+
+It is idempotent — re-run it whenever the project is rebuilt. The generated profile sits between
+`BEGIN/END GENERATED PROFILE` comments and is replaced in place; the rest of `pom.xml`, hand-written
+profiles included, is untouched. (The edit is textual on purpose: an XML round-trip drops every
+comment in the file.)
+
+**Committing the profile is safe.** The fat jar is symlinked to `tools/fatjars/<name>.jar`
+(git-ignored) and the profile points at `${project.basedir}/tools/fatjars/<name>.jar`, so the
+generated XML has no machine-specific path in it and is the same for everyone. A symlink rather
+than a copy — openmeetings' jar is 305 MB. To retire a project,
+`python3 scripts/project_setup.py <name> --remove` deletes its profile block and registry entry.
+
+**The registry.** `projects.json` at the repo root records each project's two trees, its fat jar and
+its JDK release. It is machine-local and git-ignored.
+
+```bash
+scripts/run_tmux.sh --list                       # everything registered
+python3 run.py deltaspike --max 5                # trees come from the registry
+python3 run.py deltaspike --original <o> --refactored <r>   # or override them
+```
+
+**A partial build is fine.** Big projects have modules the fuzzer has no use for and that do not
+build here — skywalking's `apm-webapp` shells out to `npm ci`. The install runs `--fail-at-end`,
+modules that produced no jar are dropped from the shade with a line saying which, and the run
+continues. Use `--build-args` to steer the project's own build
+(`--build-args='-pl !apm-webapp'`), and `--jar` to reuse a fat jar you already have.
+
+**JDK.** The profile compiles the snapshots at the release step 0 read out of the built jar's
+class-file version, so a Java 11 project gets `maven.compiler.source=11` with no editing. You still
+have to *run* on a JDK at least that new; `run_tmux.sh` checks this before deleting anything and
+prints the `export JAVA_HOME=…` line if it does not hold. EvoSuite 1.2.0 separately needs a Java 8
+to launch — set `JAVA8_HOME` (`run_tmux.sh` finds the usual locations itself).
+
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64   # skywalking is a Java 11 project
+export JAVA8_HOME=/usr/lib/jvm/java-8-openjdk-amd64   # EvoSuite needs 8, whatever the project is
+```
+
+**Past Java 8, add `--source-seeds`.** Those two JDK requirements collide. EvoSuite 1.2.0 only runs
+on a Java 8 JVM, and a Java 8 JVM cannot load a snapshot compiled at class-file 53 or newer — so on
+any project built past Java 8, step 4 detects the mismatch and skips itself:
+
+```
+SKIPPING EvoSuite for openmeetings: snapshots are class-file 61 (Java 17) but the EvoSuite
+JVM .../java-8-openjdk-amd64/bin/java only loads up to 52 (Java 8)
+```
+
+That is deliberate — EvoSuite on a newer JVM hangs rather than failing — and the run continues, but
+**the fuzzer then starts from an empty corpus**. `--source-seeds` mines the constants out of the
+snapshot sources instead, which needs no JVM of any particular version:
+
+```bash
+scripts/run_tmux.sh openmeetings --source-seeds          # Java 17: the only way to get seeds
+```
+
+It is opt-in rather than automatic on purpose: a corpus mined from sources is a different kind of
+corpus from one generated by EvoSuite, and swapping between them silently would make one project's
+divergence rate incomparable with another's. Of the projects below only `deltaspike` (Java 8) gets
+an EvoSuite corpus; `skywalking`, `jmeter` and `openmeetings` all need this flag.
+
+### Verified on
+
+Registered and run from the `before/`+`after/` trees of
+[RefAgent-reproduce](https://github.com/musta55/RefAgent-reproduce/tree/track-refactored-projects),
+none of which the tool previously had an entry for:
+
+| Project | Build system | JDK | Fat jar | Changed methods | What it exercised |
+|---|---|---|---|---:|---|
+| `deltaspike` | Maven, **no wrapper** | 8 | 34 modules, 12 MB | 167 → 119 after prune | the `mvn` fallback when a project ships no `mvnw` |
+| `openmeetings` | Maven, no wrapper | 17 | 9 modules, 305 MB | 311 → 178 after prune | the JDK path — profile written at 17, not the base pom's 8 |
+| `skywalking` | Maven via `mvnw` | 11 | 71 modules, 117 MB | 87 changed files | the wrapper, and surviving a module that fails (`apm-webapp` runs `npm ci`) |
+| `jmeter` | **Gradle** via `gradlew` | 9 | 80 MB | 456 changed files | the Gradle path; needed `--build-args='-PchecksumIgnore'` |
+
+Two were taken all the way to a report with `--max 5 --duration 15s`:
+
+- **deltaspike** (Java 8, EvoSuite-seeded): 5 methods, 119,385 inputs, 117,512 differential
+  comparisons, all EQUIVALENT.
+- **openmeetings** (Java 17, unseeded): 2 EQUIVALENT, 2 SKIP, and **1 DIVERGENT** —
+  `LdapOptions.ctor` on an empty `Properties` leaves `useAdminForAttrs` `false` on the original and
+  `true` on the refactored version. A real behavioural change, on a project the tool had no entry
+  for an hour earlier.
+
+The bundled `example` still runs through `run_tmux.sh` in **1m37s** and reproduces both of its
+DIVERGENTs, so none of this changed a verdict.
+
+The JDK column is read out of each fat jar's class-file versions, exactly. It is a maximum over the
+whole classpath, which is what decides whether `javac` can read it: `jmeter`'s own classes are Java
+8, but six Jetty ALPN classes among its 46,470 are Java 9, so the profile is written at 9.
+
+Whatever a project's size, start with `--max 5`: it bounds the EvoSuite step as well as the fuzzing,
+so the wiring is confirmed in minutes rather than hours.
+
 ## Larger example (apex-core)
 
 A real-project example ships under [`examples/apex-core/`](examples/apex-core/): the `original/` and
@@ -75,26 +197,31 @@ A real-project example ships under [`examples/apex-core/`](examples/apex-core/):
 #    (First run only: chmod +x scripts/setup_deps.sh, or invoke it as `bash scripts/setup_deps.sh ...`.)
 scripts/setup_deps.sh /path/to/built/apex-core
 
-# 2. Run the whole pipeline: two trees in, report out.
-python3 run.py apex-core \
-    --original   examples/apex-core/original \
-    --refactored examples/apex-core/refactored
+# 2. Run the whole pipeline. The bundled trees are pre-seeded in the registry, so the
+#    two --original/--refactored flags are optional here.
+python3 run.py apex-core
 
 # Smoke-test the first few methods only:
-python3 run.py apex-core --original examples/apex-core/original \
-    --refactored examples/apex-core/refactored --max 5
+python3 run.py apex-core --max 5
 ```
 
 The report lands at `reports/apex-core/auto-fuzz-report.md`.
 
 > **Requirements:** a JDK and Maven for the fuzzing steps. apex-core is a Java 8 project — build and
-> run it on JDK 8. A Java 17 project must be built/run on JDK 21 (`export JAVA_HOME=...`); set its
-> profile's `<maven.compiler.source|target>` to match. Step 1 (`build_project.py`) is pure Python.
+> run it on JDK 8. Step 1 (`build_project.py`) is pure Python.
 
-## What `run.py` does (the six steps)
+`apex-core` is the one profile still written by hand, kept as a worked example of what
+`project_setup.py` now generates: `setup_deps.sh` installs four bare module jars, and because those
+carry no pom, the profile has to name ten third-party libraries itself. To convert it, delete the
+hand-written profile from `pom.xml` and run
+`python3 scripts/project_setup.py apex-core -d /path/to/apex-core` instead. `setup_deps.sh` is
+needed only for the hand-written profile; no other project uses it.
+
+## The pipeline, step by step
 
 | Step | Script | What it produces |
 |------|--------|------------------|
+| 0 | `project_setup.py <p> -d <dir>` | the project's fat jar, its `-P<p>` profile in `pom.xml`, its `projects.json` entry — **once per project**, not part of `run.py` |
 | 1 | `build_project.py <p> --original <o> --refactored <r>` | `manifest.json` + renamed `<Class>{Original,Refactored}` snapshots |
 | 2 | `prune.py <p>` | iterative `./mvnw -P<p> test-compile`; drops class pairs whose deps don't resolve |
 | 3 | `gen_harnesses.py <p> <dur>` | one thin Jazzer harness per manifest method |
@@ -102,9 +229,15 @@ The report lands at `reports/apex-core/auto-fuzz-report.md`.
 | 5 | `gen_seeds.py <p>` | those tests' constants, encoded as the fuzzer's seed corpus |
 | 6 | `run_project.py <p>` | fuzzes each method + differential coverage → `reports/<p>/auto-fuzz-report.md` |
 
-Steps 1, 3, 6 are pure per-project; steps 2, 4, 5 need the project's dependencies on the classpath.
-Steps 4–5 need `scripts/setup_evosuite.sh` first.
-You can run steps individually, or all at once via `run.py`.
+Steps 1, 3, 6 are pure per-project; steps 2, 4, 5 need the project's dependencies on the classpath,
+which is what step 0 provides. Steps 4–5 need `scripts/setup_evosuite.sh` first.
+You can run steps individually, all at once via `run.py`, or from scratch and detached via
+`scripts/run_tmux.sh`. `run.py --setup <dir>` folds step 0 in.
+
+**Step 2 fails loudly now.** Maven treats an unknown `-P` as a warning and exits 0, so a project
+with no profile used to sail through a `test-compile` that built nothing, and every method came out
+`harness error` with nothing saying why. `prune.py` checks the profile exists before it runs and
+that the compile actually produced snapshot classes after it.
 
 ## Seeding the fuzzer with generated unit tests
 
@@ -115,9 +248,13 @@ random bytes. This is part of the normal pipeline, not an option.
 
 ```bash
 scripts/setup_evosuite.sh          # once: fetch EvoSuite 1.2.0 (needs a Java 8 JVM)
-python3 run.py example --original examples/demo/original \
-                       --refactored examples/demo/refactored
+python3 run.py example
 ```
+
+On a project built past Java 8 this step cannot run at all — EvoSuite 1.2.0 needs a Java 8 JVM and
+a Java 8 JVM cannot load the snapshots — so it detects the mismatch, skips itself, and the fuzzer
+starts unseeded unless you pass `--source-seeds`. See [Run it on your own
+project](#run-it-on-your-own-project).
 
 **How a unit test becomes a seed.** A Jazzer input is a byte string, and what those bytes mean is
 decided by the engine's own argument builder — `ObjectFactory` plus Jazzer's autofuzz, including
@@ -297,34 +434,29 @@ A parser answers all of that by construction. Switching cost nothing on the exis
 demo produces byte-identical verdicts, and apex-core went from 83 to **86** changed methods — the
 three the regex had been swallowing, with none lost.
 
-## Add your own project
-
-1. Put your two source trees anywhere (e.g. `examples/<project>/{original,refactored}`).
-2. Make the project's dependencies resolvable — add a `<profile id="<project>">` in
-   [`pom.xml`](pom.xml) (copy the `apex-core` profile: change the id, list your project's
-   dependencies, and point the two `add-test-source` paths at `src/test/Dataset/<project>` and
-   `src/test/fuzzing/<project>`).
-3. `python3 run.py <project> --original <o> --refactored <r>`. `prune.py` auto-drops whatever
-   won't compile.
-
 ## Layout
 
 ```
 run.py                                   one entry point: two trees -> report
 pom.xml                                  engine-only base; one <profile> per target project
+projects.json                            the registry: per project, its trees/jar/JDK (git-ignored)
 scripts/
+  project_setup.py                       (0) build a project -> fat jar + pom profile + registry entry
+  projects.py                            the registry itself; `python3 scripts/projects.py` lists it
+  run_tmux.sh                            from-scratch detached run of the whole pipeline
   build_project.py                       (1) two-tree diff -> manifest + snapshots
   prune.py                               (2) compile-and-drop gate
   gen_harnesses.py                       (3) one Jazzer harness per method
   gen_unittests.py                       (4) EvoSuite suites for the Original snapshots
   gen_seeds.py                           (5) extract constants + encode them as a seed corpus
   extract_seeds.py                       (5a) per-test-case constants -> seed-values.json
+  source_seeds.py                        (5b) --source-seeds: same, mined from the snapshot sources
   run_project.py                         (6) fuzz + differential coverage -> report
   unit_coverage.py                       optional: what the unit suite alone covers, per method
   MethodExtractor.java                   (1a) JavaParser AST: find + diff + classify methods
   auto_select.py                         package lookup + top-level type spans (raw-text helpers)
   CovReport.java                         per-method branch/line extractor (reads Jazzer's .exec)
-  setup_deps.sh                          install a project's built classes as local Maven jars
+  setup_deps.sh                          legacy: local Maven jars for the hand-written apex-core profile
   setup_evosuite.sh                      fetch EvoSuite + install its runtime locally
 src/test/java/fuzz/auto/
   GenericDifferential.java               the shared reflection engine + oracle
@@ -334,6 +466,7 @@ src/test/java/fuzz/auto/
   SeedWriter.java                        unit-test constants -> verified Jazzer seed corpus
   JazzerCoverage.java                    dumps Jazzer's own coverage as a JaCoCo .exec at exit
   Digest.java                            structural comparison of return values and receiver state
+tools/fatjars/<project>.jar              symlink to each registered project's fat jar (git-ignored)
 examples/apex-core/{original,refactored}/          worked example input trees
 examples/apex-core/sample-report.md                what the output looks like
 ```

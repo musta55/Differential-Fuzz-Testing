@@ -2,7 +2,7 @@
 /src/test/Dataset/
 /src/test/fuzzing/
 /src/test/resources/
-/reports/
+# /reports/
 
 # Build + fuzzing runtime artifacts
 target/
@@ -47,3 +47,8 @@ replay_pid*
 /evosuite-tests/
 /.evosuite/
 issues/
+# machine-local project registry written by scripts/project_setup.py
+projects.json
+
+# fat jars built by scripts/project_setup.py (symlinks to the target projects builds)
+tools/fatjars/

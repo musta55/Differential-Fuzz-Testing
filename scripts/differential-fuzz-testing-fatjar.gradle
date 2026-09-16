@@ -6,6 +6,11 @@ gradle.rootProject {
             destinationDirectory = root.layout.buildDirectory.dir("libs")
             duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
+            // An uber-jar inherits every input jar's signature files, which no longer match the
+            // repacked content: the JVM then refuses to load those classes with a
+            // SecurityException. The Maven side of project_setup.py filters the same four.
+            exclude "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA", "module-info.class"
+
             root.allprojects.findAll { it.plugins.hasPlugin("java") }.each { proj ->
                 dependsOn proj.tasks.named("classes")
 

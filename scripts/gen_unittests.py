@@ -29,6 +29,7 @@ import csv
 import glob
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -70,6 +71,58 @@ def java8():
         if os.path.isfile(os.path.join(d, "bin/java")):
             return os.path.join(d, "bin/java")
     return "java"  # fall back to whatever is on PATH and let EvoSuite complain
+
+
+# EvoSuite 1.2.0's Java 8 ceiling is class-file 52. A project built for a newer release is simply
+# unreachable: the master dies in classpath analysis with a ClassNotFoundException naming the
+# version, and *every* class still burns --budget plus --timeout-slack before the run gives up
+# (measured on openmeetings: 180 classes x 240s, 0 suites, ~48 minutes for nothing). Running
+# EvoSuite on the newer JDK instead does not help either -- the master spawns the client as its own
+# JVM, and the client hangs whether or not --add-opens reaches it. So detect the mismatch once,
+# report it, and let the rest of the pipeline fall back to source-mined seeds.
+def jvm_class_version(java):
+    """Highest class-file major version this JVM can load, from its java.class.version."""
+    try:
+        r = subprocess.run([java, "-XshowSettings:properties", "-version"],
+                           capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    m = re.search(r"java\.class\.version\s*=\s*(\d+)", (r.stdout or "") + (r.stderr or ""))
+    return int(m.group(1)) if m else None
+
+
+def class_file_version(path):
+    """Major version from a .class header (bytes 6-7), or None if it is not readable as one."""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(8)
+    except OSError:
+        return None
+    return int.from_bytes(head[6:8], "big") if head[:4] == b"\xca\xfe\xba\xbe" else None
+
+
+def version_mismatch(classes, java):
+    """Why EvoSuite cannot run here, or None if it can."""
+    ceiling = jvm_class_version(java)
+    if ceiling is None:
+        return None  # cannot tell; let EvoSuite speak for itself
+    # EvoSuite 1.2.0 is a Java 8 tool. On a newer JVM it does not fail, it *hangs*: the master
+    # spawns the client as a separate JVM that comes up broken on the module system and never
+    # reports back, so the run only ends at the kill slack. Refuse rather than hang.
+    if ceiling > 52:
+        return (f"EvoSuite 1.2.0 requires a Java 8 JVM (class-file 52) but {java} is "
+                f"class-file {ceiling} (Java {ceiling - 44}); set JAVA8_HOME")
+    seen = {}
+    for fqn in classes:
+        v = class_file_version(os.path.join(MODULE, "target/test-classes",
+                                            fqn.replace(".", "/") + ".class"))
+        if v:
+            seen.setdefault(v, fqn)
+    if not seen or max(seen) <= ceiling:
+        return None
+    worst = max(seen)
+    return (f"snapshots are class-file {worst} (Java {worst - 44}) but the EvoSuite JVM {java} "
+            f"only loads up to {ceiling} (Java {ceiling - 44}); e.g. {seen[worst]}")
 
 
 def project_classpath(project):
@@ -155,6 +208,16 @@ def main():
     classes = target_classes(args.project, args.side)
     if args.max:
         classes = classes[:args.max]
+    reason = version_mismatch(classes, java)
+    if reason:
+        print(f"SKIPPING EvoSuite for {args.project}: {reason}")
+        print("  no suites will be generated; scripts/gen_seeds.py will mine seeds from the "
+              "original snapshot sources instead.")
+        with open(os.path.join(base, "generation.json"), "w") as f:
+            json.dump({"project": args.project, "side": args.side, "budget": args.budget,
+                       "status": "skipped", "reason": reason, "classes": []}, f, indent=2)
+        return 0
+
     print(f"EvoSuite {os.path.basename(jar)} on {len(classes)} {args.side} classes "
           f"({args.budget}s each, {args.jobs} at a time) -> {base}")
 

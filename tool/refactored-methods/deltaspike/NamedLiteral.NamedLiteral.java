@@ -1,0 +1,3 @@
+public NamedLiteral() {
+    this("");
+}
