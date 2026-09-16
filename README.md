@@ -88,9 +88,9 @@ They are usually the same before/after pair, and `-d` normally points at the ori
 **What step 0 does.** It runs the project's own build (`mvnw`/`mvn`, `gradlew`/`gradle`, or plain
 `javac` when there is no build file), collects every jar module in the reactor and shades them plus
 their transitive third-party dependencies into one jar, then splices a profile into
-[`pom.xml`](pom.xml) pointing at it. Maven resolution does what used to be manual: the hand-written
-apex-core profile lists ten third-party libraries by name purely because `setup_deps.sh` installed
-bare module jars with no pom, so nothing was transitive.
+[`pom.xml`](pom.xml) pointing at it. Maven resolution does what used to be manual: apex-core's old
+hand-written profile had to name ten third-party libraries itself, purely because the bare module
+jars a helper script installed for it carried no pom, so nothing was transitive.
 
 It is idempotent — re-run it whenever the project is rebuilt. The generated profile sits between
 `BEGIN/END GENERATED PROFILE` comments and is replaced in place; the rest of `pom.xml`, hand-written
@@ -189,13 +189,10 @@ A real-project example ships under [`examples/apex-core/`](examples/apex-core/):
 `refactored/` trees for 27 apex-core classes, plus a [`sample-report.md`](examples/apex-core/sample-report.md).
 
 ```bash
-# 1. Provide the target project's own dependencies (apex-core needs the other apex classes).
-#    The argument is a SEPARATE, already-built apex-core source checkout (mvn install -DskipTests) —
-#    it must contain api/, common/, bufferserver/, engine/ each with a built target/classes.
-#    This is NOT examples/apex-core (those are just the diff snapshots the tool fuzzes).
-#    It installs the four modules as org.apache.apex.local:apex-*:3.7.0-local for the -Papex-core profile.
-#    (First run only: chmod +x scripts/setup_deps.sh, or invoke it as `bash scripts/setup_deps.sh ...`.)
-scripts/setup_deps.sh /path/to/built/apex-core
+# 1. Register it. The argument is a SEPARATE, already-built apex-core source checkout — it
+#    supplies the classpath the snapshots reference, and is NOT examples/apex-core (those are
+#    just the diff snapshots the tool fuzzes).
+python3 scripts/project_setup.py apex-core -d /path/to/apex-core
 
 # 2. Run the whole pipeline. The bundled trees are pre-seeded in the registry, so the
 #    two --original/--refactored flags are optional here.
@@ -210,12 +207,11 @@ The report lands at `reports/apex-core/auto-fuzz-report.md`.
 > **Requirements:** a JDK and Maven for the fuzzing steps. apex-core is a Java 8 project — build and
 > run it on JDK 8. Step 1 (`build_project.py`) is pure Python.
 
-`apex-core` is the one profile still written by hand, kept as a worked example of what
-`project_setup.py` now generates: `setup_deps.sh` installs four bare module jars, and because those
-carry no pom, the profile has to name ten third-party libraries itself. To convert it, delete the
-hand-written profile from `pom.xml` and run
-`python3 scripts/project_setup.py apex-core -d /path/to/apex-core` instead. `setup_deps.sh` is
-needed only for the hand-written profile; no other project uses it.
+apex-core used to be the one profile written by hand, against four bare module jars a
+`setup_deps.sh` helper installed into `~/.m2`; because those jars carried no pom, the profile also
+had to name ten third-party libraries itself. Step 0 now derives all of that from apex-core's own
+build, so both the hand-written profile and that helper are gone — apex-core registers exactly like
+every other project.
 
 ## The pipeline, step by step
 
@@ -456,7 +452,6 @@ scripts/
   MethodExtractor.java                   (1a) JavaParser AST: find + diff + classify methods
   auto_select.py                         package lookup + top-level type spans (raw-text helpers)
   CovReport.java                         per-method branch/line extractor (reads Jazzer's .exec)
-  setup_deps.sh                          legacy: local Maven jars for the hand-written apex-core profile
   setup_evosuite.sh                      fetch EvoSuite + install its runtime locally
 src/test/java/fuzz/auto/
   GenericDifferential.java               the shared reflection engine + oracle

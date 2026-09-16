@@ -158,17 +158,12 @@ grep -q "<id>$PROJECT</id>" "$MODULE/pom.xml" \
 
 [[ -d "$ORIG" && -d "$REF" ]] || fail "source trees not found: $ORIG / $REF"
 
-# The project's classpath. A registered project has a fat jar; the two bundled demos and any
-# hand-written profile provide theirs some other way, so only check what the registry knows.
+# The project's classpath. A registered project has a fat jar; the self-contained `example`
+# demo needs none, so only check what the registry knows.
 PROJ_JAR="$(python3 scripts/projects.py "$PROJECT" jar)"
 if [[ -n "$PROJ_JAR" && ! -f "$PROJ_JAR" ]]; then
   fail "the fat jar this profile points at is gone: $PROJ_JAR
                 Rebuild it: python3 scripts/project_setup.py $PROJECT -d <checkout>"
-fi
-# apex-core is the one profile still written by hand, against jars that setup_deps.sh installs.
-if [[ "$PROJECT" == "apex-core" && -z "$PROJ_JAR" ]]; then
-  [[ -d "$HOME/.m2/repository/org/apache/apex/local" ]] \
-    || fail "apex jars missing — run scripts/setup_deps.sh <path-to-built-apex-core>"
 fi
 
 # ── JDK checks. The snapshots compile at the project's own release, so a JDK older than

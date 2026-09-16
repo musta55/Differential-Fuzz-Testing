@@ -19,9 +19,9 @@ Given a checkout of the target project it:
   4. Records the project in projects.json (see scripts/projects.py), so later steps and
      scripts/run_tmux.sh need only the name.
 
-Everything the old apex-core path did by hand — scripts/setup_deps.sh installing four
-module jars, then ten third-party dependencies typed into the profile because those bare
-jars carried no pom — this does from the project's own build metadata.
+Everything the old apex-core path did by hand — a helper script installing four bare module
+jars into ~/.m2, then ten third-party dependencies typed into the profile because those jars
+carried no pom of their own — this does from the project's own build metadata.
 
 The generated profile is delimited by BEGIN/END GENERATED PROFILE comments and is replaced
 in place on re-run. The rest of pom.xml, hand-written profiles included, is never touched:
@@ -115,6 +115,31 @@ DEPENDENCY_TEMPLATE = """        <dependency>
 
 BEGIN = "<!-- BEGIN GENERATED PROFILE: {name} (scripts/project_setup.py) -->"
 END = "<!-- END GENERATED PROFILE: {name} -->"
+GENERATED_BLOCK = re.compile(
+    r"[ \t]*<!-- BEGIN GENERATED PROFILE:.*?<!-- END GENERATED PROFILE:[^>]*-->\n?", re.S)
+
+
+def handwritten_profile_ids(text: str) -> set[str]:
+    """The ids of profiles in pom.xml that this script did not generate.
+
+    Parsed, not pattern-matched. The first version searched for `<profile>\\s*<id>NAME</id>`,
+    which misses any profile carrying a comment before its <id> — `example` has one, so
+    re-registering that name appended a SECOND <profile><id>example</id> rather than stopping,
+    and a pom with two profiles of one id is a model error Maven refuses to build.
+
+    Only writing through ElementTree drops the file's comments; reading it is free.
+    """
+    try:
+        root = XML.fromstring(GENERATED_BLOCK.sub("", text))
+    except XML.ParseError:
+        return set()          # a pom Maven could not read either — let the splice proceed
+    ids = set()
+    for ns in (f"{{{POM_NS}}}", ""):
+        for profile in root.findall(f"{ns}profiles/{ns}profile"):
+            pid = profile.find(f"{ns}id")
+            if pid is not None and pid.text:
+                ids.add(pid.text.strip())
+    return ids
 
 
 # ── running builds ─────────────────────────────────────────────────────────────────────
@@ -418,16 +443,24 @@ def write_profile(jar_rel: str, name: str, java: str) -> None:
         _, post = rest.split(end, 1)
         text = pre.rstrip(" \t") + block + post.lstrip("\n")
         action = "replaced"
-    elif re.search(rf"<profile>\s*<id>{re.escape(name)}</id>", text):
-        sys.exit(f"pom.xml already has a HAND-WRITTEN profile '{name}' with no generated markers.\n"
-                 f"  Remove it first, or register this project under a different name.")
-    elif "</profiles>" in text:
-        m = re.search(r"(?m)^([ \t]*)</profiles>", text)
-        close = (m.group(1) if m else "  ") + "</profiles>"
-        text = text.replace(close, block + close, 1)
-        action = "added"
     else:
-        text = text.replace("</project>", f"  <profiles>\n{block}  </profiles>\n</project>", 1)
+        # A profile with this id but no markers is somebody's hand-written one. Overwriting it
+        # would be silent data loss, so stop — but say exactly where it is and how to pick the
+        # run back up, because by this point the project has already been built and shaded.
+        if name in handwritten_profile_ids(text):
+            sys.exit(
+                f"pom.xml already has a HAND-WRITTEN profile '{name}' with no generated markers.\n"
+                f"  --remove will not help: it only deletes profiles this script generated.\n"
+                f"  Delete that <profile>...</profile> block by hand, or register this project\n"
+                f"  under a different name.\n"
+                f"  The fat jar is already built and linked, so skip the rebuild on the retry:\n"
+                f"    python3 scripts/project_setup.py {name} --jar {MODULE / jar_rel}")
+        if "</profiles>" in text:
+            m = re.search(r"(?m)^([ \t]*)</profiles>", text)
+            close = (m.group(1) if m else "  ") + "</profiles>"
+            text = text.replace(close, block + close, 1)
+        else:
+            text = text.replace("</project>", f"  <profiles>\n{block}  </profiles>\n</project>", 1)
         action = "added"
     # Atomic: a half-written pom.xml breaks every Maven invocation in the repo, and a run in
     # another terminal reads this file once per fuzzed method.

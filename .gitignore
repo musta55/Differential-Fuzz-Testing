@@ -3,7 +3,7 @@
 /src/test/fuzzing/
 /src/test/resources/
 # /reports/
-
+.specstory
 # Build + fuzzing runtime artifacts
 target/
 .cifuzz-corpus/
