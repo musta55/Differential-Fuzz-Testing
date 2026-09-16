@@ -1,0 +1,1497 @@
+{
+  "project": "deltaspike",
+  "results_dir": "results-qwen/deltaspike",
+  "before_dir": "/home/mhasan02/2ndSem/RefAgent-reproduce/projects/before/deltaspike",
+  "target_dir": "/home/mhasan02/2ndSem/RefAgent-reproduce/projects/after/deltaspike",
+  "applied_count": 290,
+  "skipped_count": 5,
+  "applied": [
+    {
+      "class": "AbstractBeanHolder",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/AbstractBeanHolder.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AbstractBeanStorage",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/injection/AbstractBeanStorage.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AbstractConfigNode",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/config/view/AbstractConfigNode.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AbstractDelegateQueryHandler",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/handler/AbstractDelegateQueryHandler.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AbstractEntityDescriptor",
+      "path": "deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/descriptor/xml/AbstractEntityDescriptor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AbstractEntityHierarchyBuilder",
+      "path": "deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/descriptor/xml/AbstractEntityHierarchyBuilder.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AbstractInvocationContext",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/interceptor/AbstractInvocationContext.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AbstractPathConfigDescriptor",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/config/view/AbstractPathConfigDescriptor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AccessDeniedException",
+      "path": "deltaspike/modules/security/api/src/main/java/org/apache/deltaspike/security/api/authorization/AccessDeniedException.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AccessDeniedExceptionBroadcaster",
+      "path": "deltaspike/modules/security/impl/src/main/java/org/apache/deltaspike/security/impl/authorization/AccessDeniedExceptionBroadcaster.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ActiveEntityManagerHolder",
+      "path": "deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/entitymanager/ActiveEntityManagerHolder.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AggregatedClassLoader",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/AggregatedClassLoader.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AlternativeBeanClassProvider",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/alternative/AlternativeBeanClassProvider.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AlternativeLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/AlternativeLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AndQueryPart",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/builder/part/AndQueryPart.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AnnotatedConstructorImpl",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/metadata/builder/AnnotatedConstructorImpl.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AnnotatedImpl",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/metadata/builder/AnnotatedImpl.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AnnotatedMemberImpl",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/metadata/builder/AnnotatedMemberImpl.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AnnotatedMethodImpl",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/metadata/builder/AnnotatedMethodImpl.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AnnotatedMethods",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/util/AnnotatedMethods.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AnnotatedParameterImpl",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/metadata/builder/AnnotatedParameterImpl.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AnnotationInstanceUtils",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/util/AnnotationInstanceUtils.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AnnotationRule",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/interceptor/interdyn/AnnotationRule.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AnnotationStore",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/metadata/builder/AnnotationStore.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AnnotationUtils",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/AnnotationUtils.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ApplicationScopedBean",
+      "path": "deltaspike/examples/jsf-examples/src/main/java/org/apache/deltaspike/example/scope/ApplicationScopedBean.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ApplicationScopedLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/ApplicationScopedLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ArraysUtils",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/ArraysUtils.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AttributeAccessor",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/jmx/AttributeAccessor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AttributeQuerySelection",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/AttributeQuerySelection.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AuthenticationListener",
+      "path": "deltaspike/examples/security-requested-page-after-login-cdi/src/main/java/org/apache/deltaspike/example/security/requestedpage/cdi/AuthenticationListener.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "AuthorizationParameter",
+      "path": "deltaspike/modules/security/impl/src/main/java/org/apache/deltaspike/security/impl/extension/AuthorizationParameter.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "BaseConfigSource",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/BaseConfigSource.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "BasePropertyQueryPart",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/builder/part/BasePropertyQueryPart.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "BeanDestroyable",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/util/bean/BeanDestroyable.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "Between",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/Between.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "BroadcasterProducer",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/jmx/BroadcasterProducer.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "Car",
+      "path": "deltaspike/cdictrl/tck/src/main/java/org/apache/deltaspike/cdise/tck/beans/Car.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "CarRepair",
+      "path": "deltaspike/cdictrl/tck/src/main/java/org/apache/deltaspike/cdise/tck/beans/CarRepair.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "CdiAwareJobFactory",
+      "path": "deltaspike/modules/scheduler/impl/src/main/java/org/apache/deltaspike/scheduler/impl/CdiAwareJobFactory.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "CdiCipherService",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/crypto/CdiCipherService.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "CdiServletContextListener",
+      "path": "deltaspike/cdictrl/servlet/src/main/java/org/apache/deltaspike/cdise/servlet/CdiServletContextListener.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "CipherCli",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/crypto/CipherCli.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ClassDefiner",
+      "path": "deltaspike/modules/proxy/impl-asm/src/main/java/org/apache/deltaspike/proxy/impl/ClassDefiner.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ClassFilter",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/filter/ClassFilter.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ClientWindowAdapter",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/scope/window/ClientWindowAdapter.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ClientWindowConfig",
+      "path": "deltaspike/modules/jsf/api/src/main/java/org/apache/deltaspike/jsf/spi/scope/window/ClientWindowConfig.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "CollectionUtils",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/CollectionUtils.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConfigDescriptor",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/config/view/metadata/ConfigDescriptor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConfigDescriptorValidator",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/config/view/ConfigDescriptorValidator.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConfigExample",
+      "path": "deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/config/ConfigExample.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConfigHelperImpl",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/ConfigHelperImpl.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConfigNodeConverter",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/config/view/ConfigNodeConverter.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConfigPreProcessor",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/config/view/ConfigPreProcessor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConfigProviderImpl",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/ConfigProviderImpl.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConfigResolverContext",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/ConfigResolverContext.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConfigSnapshot",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/config/ConfigSnapshot.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConfigSnapshotImpl",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/ConfigSnapshotImpl.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConfigValidator",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/config/ConfigValidator.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ContainerManagedTransactionStrategy",
+      "path": "deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/transaction/ContainerManagedTransactionStrategy.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ContextControl",
+      "path": "deltaspike/cdictrl/api/src/main/java/org/apache/deltaspike/cdise/api/ContextControl.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ContextUtils",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/ContextUtils.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ContextualInstanceInfo",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/context/ContextualInstanceInfo.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ControllerView",
+      "path": "deltaspike/examples/jsf-examples/src/main/java/org/apache/deltaspike/example/message/ControllerView.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConversationBeanHolder",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/conversation/ConversationBeanHolder.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConversationKey",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/conversation/ConversationKey.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConversationScopedLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/ConversationScopedLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConverterAndValidatorProxyFactory",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/injection/proxy/ConverterAndValidatorProxyFactory.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConverterInvocationHandler",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/injection/proxy/ConverterInvocationHandler.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ConverterWrapper",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/injection/ConverterWrapper.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "CountDistinct",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/numeric/CountDistinct.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "CountQueryPostProcessor",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/builder/postprocessor/CountQueryPostProcessor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "CurrentDate",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/temporal/CurrentDate.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "CurrentTime",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/temporal/CurrentTime.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "CurrentTimestamp",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/temporal/CurrentTimestamp.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "CustomProjectStageBeanFilter",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/exclude/CustomProjectStageBeanFilter.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "CustomPropertyFileConfig",
+      "path": "deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/config/CustomPropertyFileConfig.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DefaultClassDeactivator",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/activation/DefaultClassDeactivator.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DefaultEchoService",
+      "path": "deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/echo/DefaultEchoService.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DefaultEntityManagerHolder",
+      "path": "deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/entitymanager/DefaultEntityManagerHolder.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DefaultErrorView",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/config/view/DefaultErrorView.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DefaultLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/DefaultLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DefaultLocaleResolver",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/message/DefaultLocaleResolver.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DefaultLockedStrategy",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/lock/DefaultLockedStrategy.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DefaultMessageInterpolator",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/message/DefaultMessageInterpolator.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DefaultThrottledStrategy",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/throttling/DefaultThrottledStrategy.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DefaultWindowContextQuotaHandler",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/window/DefaultWindowContextQuotaHandler.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DelegateQueryHandler",
+      "path": "deltaspike/modules/data/api/src/main/java/org/apache/deltaspike/data/spi/DelegateQueryHandler.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DeltaSpikeConfig",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/config/DeltaSpikeConfig.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DeltaSpikeConfigInfoMBean",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/DeltaSpikeConfigInfoMBean.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DeltaSpikeFacesContextFactory",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/listener/request/DeltaSpikeFacesContextFactory.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DeltaSpikeLifecycleFactoryWrapper",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/listener/request/DeltaSpikeLifecycleFactoryWrapper.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DeltaSpikeNavigationHandlerWrapper",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/navigation/DeltaSpikeNavigationHandlerWrapper.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DeltaSpikePartialProducerLifecycle",
+      "path": "deltaspike/modules/partial-bean/impl/src/main/java/org/apache/deltaspike/partialbean/impl/DeltaSpikePartialProducerLifecycle.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DeltaSpikeResource",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/resource/DeltaSpikeResource.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DependentProviderDestroyable",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/util/bean/DependentProviderDestroyable.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DependentScopeLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/DependentScopeLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "Descriptor",
+      "path": "deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/descriptor/xml/Descriptor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DestroyedLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/DestroyedLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DisableClientWindowComponent",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/component/window/DisableClientWindowComponent.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "DummyInjectionTarget",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/metadata/builder/DummyInjectionTarget.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "EchoService",
+      "path": "deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/echo/EchoService.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "EclipseLinkEjbQueryStringExtractor",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/util/jpa/EclipseLinkEjbQueryStringExtractor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "EditableAccessDecisionVoterContext",
+      "path": "deltaspike/modules/security/api/src/main/java/org/apache/deltaspike/security/spi/authorization/EditableAccessDecisionVoterContext.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "EntityDescriptor",
+      "path": "deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/descriptor/xml/EntityDescriptor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "EntityGraphException",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/graph/EntityGraphException.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "EntityManagerEntry",
+      "path": "deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/transaction/context/EntityManagerEntry.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "EntityManagerMetadata",
+      "path": "deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/entitymanager/EntityManagerMetadata.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "EntityManagerRef",
+      "path": "deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/entitymanager/EntityManagerRef.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "EntityMetadata",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/meta/EntityMetadata.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "EntityMetadataInitializer",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/meta/EntityMetadataInitializer.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "EnvironmentPropertyConfigSource",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/EnvironmentPropertyConfigSource.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ErrorViewAwareAccessDeniedException",
+      "path": "deltaspike/modules/security/api/src/main/java/org/apache/deltaspike/security/api/authorization/ErrorViewAwareAccessDeniedException.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "EventBridgeContextListener",
+      "path": "deltaspike/modules/servlet/impl/src/main/java/org/apache/deltaspike/servlet/impl/event/EventBridgeContextListener.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ExceptionEvent",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/exception/control/event/ExceptionEvent.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ExceptionUtils",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/ExceptionUtils.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ExpressionInterpreter",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/interpreter/ExpressionInterpreter.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "FieldProperty",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/FieldProperty.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "FieldPropertyImpl",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/FieldPropertyImpl.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "FolderConfigNode",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/config/view/FolderConfigNode.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "FolderLiteral",
+      "path": "deltaspike/modules/jsf/api/src/main/java/org/apache/deltaspike/jsf/api/literal/FolderLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "FutureableInterceptor",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/future/FutureableInterceptor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "FutureableStrategy",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/future/FutureableStrategy.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "GlobalAlternative",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/exclude/GlobalAlternative.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "GlobalInterceptorWrapper",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/interceptor/GlobalInterceptorWrapper.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "GroupedConversation",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/scope/GroupedConversation.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "GroupedConversationManager",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/scope/conversation/GroupedConversationManager.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "HandlerMethodStorage",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/exception/control/HandlerMethodStorage.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "HandlerMethodStorageProducer",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/exception/control/HandlerMethodStorageProducer.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ImmutableBean",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/bean/ImmutableBean.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ImmutableBeanWrapper",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/bean/ImmutableBeanWrapper.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ImmutablePassivationCapableBeanWrapper",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/bean/ImmutablePassivationCapableBeanWrapper.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "In",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/In.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "IndexedParameter",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/param/IndexedParameter.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "InitializedLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/InitializedLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "InjectableGroupedConversation",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/conversation/InjectableGroupedConversation.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "InjectableGroupedConversationManager",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/conversation/InjectableGroupedConversationManager.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "InjectableResourceLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/InjectableResourceLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "InjectableResourceProvider",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/resourceloader/InjectableResourceProvider.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "InjectableViewAccessContextManager",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/viewaccess/InjectableViewAccessContextManager.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "InjectableWindowContext",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/window/InjectableWindowContext.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "InlineMetaDataTransformer",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/config/view/InlineMetaDataTransformer.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "IntrospectiveExceptionEvent",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/exception/control/event/IntrospectiveExceptionEvent.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "InvocationContextWrapper",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/tx/InvocationContextWrapper.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "Invoker",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/throttling/Invoker.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "IsNotEmpty",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/IsNotEmpty.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "IsNotNull",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/IsNotNull.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "IsNull",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/IsNull.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "J8PromiseCompanionTask",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/future/J8PromiseCompanionTask.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "JmxBroadcasterLifecycle",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/jmx/JmxBroadcasterLifecycle.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "JobAdapter",
+      "path": "deltaspike/modules/scheduler/impl/src/main/java/org/apache/deltaspike/scheduler/impl/JobAdapter.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "JobQuartzScheduler",
+      "path": "deltaspike/modules/scheduler/impl/src/main/java/org/apache/deltaspike/scheduler/impl/JobQuartzScheduler.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "JpaQueryPostProcessor",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/handler/JpaQueryPostProcessor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "JsfAwareLocaleResolver",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/message/JsfAwareLocaleResolver.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "JsfMessageResolver",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/message/JsfMessageResolver.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "JsfRequestLifecyclePhaseListener",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/listener/phase/JsfRequestLifecyclePhaseListener.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "JsfSystemEventBroadcaster",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/listener/system/JsfSystemEventBroadcaster.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "LabelAwareGlobalAlternativeBeanClassProvider",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/exclude/extension/LabelAwareGlobalAlternativeBeanClassProvider.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "LazyWindowStrategy",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/scope/window/strategy/LazyWindowStrategy.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "LessThan",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/LessThan.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "LessThanOrEqual",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/LessThanOrEqual.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "LocalJndiConfigSource",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/LocalJndiConfigSource.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "LockModePostProcessor",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/builder/postprocessor/LockModePostProcessor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "LockedInterceptor",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/lock/LockedInterceptor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "LockedStrategy",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/lock/LockedStrategy.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "LoggedInAccessDecisionVoter",
+      "path": "deltaspike/examples/security-requested-page-after-login-cdi/src/main/java/org/apache/deltaspike/example/security/requestedpage/cdi/LoggedInAccessDecisionVoter.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ManagedUserTransactionResolver",
+      "path": "deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/transaction/ManagedUserTransactionResolver.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "MapConfigSource",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/MapConfigSource.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "Max",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/numeric/Max.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "MaxResultPostProcessor",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/builder/postprocessor/MaxResultPostProcessor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "Message",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/message/Message.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "MessageBundleContext",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/message/MessageBundleContext.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "MessageBundleLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/MessageBundleLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "MessageContext",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/message/MessageContext.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "MessageContextConfigLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/MessageContextConfigLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "MessageResolver",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/message/MessageResolver.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "MethodExpressionException",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/builder/MethodExpressionException.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "MethodProperty",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/MethodProperty.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "MethodPropertyImpl",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/MethodPropertyImpl.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ModelLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/ModelLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "Modulo",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/numeric/Modulo.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "MonitorResultEvent",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/monitoring/MonitorResultEvent.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "NamedLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/NamedLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "NamedParameter",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/param/NamedParameter.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "NamedPropertyCriteria",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/query/NamedPropertyCriteria.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "NamingConventionAwareMetadataFilter",
+      "path": "deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/metadata/NamingConventionAwareMetadataFilter.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "NavigationParameterInterceptor",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/config/view/navigation/NavigationParameterInterceptor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "NavigationParameterListInterceptor",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/config/view/navigation/NavigationParameterListInterceptor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "NewLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/NewLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "NoEchoService",
+      "path": "deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/echo/NoEchoService.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "NoValueBuilder",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/NoValueBuilder.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "NoneWindowStrategy",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/scope/window/strategy/NoneWindowStrategy.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "OpenJpaPersistenceUnitUtilDelegate",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/util/jpa/OpenJpaPersistenceUnitUtilDelegate.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "OpenJpaQueryStringExtractor",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/util/jpa/OpenJpaQueryStringExtractor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "Operation",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/jmx/Operation.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "OptionalService",
+      "path": "deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/optional/OptionalService.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "OrBuilder",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/OrBuilder.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "OrQueryPart",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/builder/part/OrQueryPart.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "OutboundParameterValueRedefiner",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/exception/control/OutboundParameterValueRedefiner.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "OwbHelper",
+      "path": "deltaspike/cdictrl/impl-owb/src/main/java/org/apache/deltaspike/cdise/owb/OwbHelper.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ParameterUtil",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/ParameterUtil.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ParameterizedTypeImpl",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/ParameterizedTypeImpl.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "PartialBeanDescriptor",
+      "path": "deltaspike/modules/partial-bean/impl/src/main/java/org/apache/deltaspike/partialbean/impl/PartialBeanDescriptor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "PartialBeanProxyFactory",
+      "path": "deltaspike/modules/partial-bean/impl/src/main/java/org/apache/deltaspike/partialbean/impl/PartialBeanProxyFactory.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "PersistenceConfigurationProvider",
+      "path": "deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/entitymanager/PersistenceConfigurationProvider.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "PersistenceUnitDescriptorInitExtension",
+      "path": "deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/descriptor/xml/PersistenceUnitDescriptorInitExtension.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "PersistenceUnitDescriptorProvider",
+      "path": "deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/descriptor/xml/PersistenceUnitDescriptorProvider.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "PersistenceUnitUtilDelegateFactory",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/util/jpa/PersistenceUnitUtilDelegateFactory.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "PostRequestTokenManager",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/token/PostRequestTokenManager.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "PostRequestTokenMarker",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/token/PostRequestTokenMarker.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "PrePersistAuditListener",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/audit/PrePersistAuditListener.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ProjectStageHolder",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/projectstage/ProjectStageHolder.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "PropertiesConfigSource",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/PropertiesConfigSource.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "Property",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/Property.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "PropertyCriteria",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/query/PropertyCriteria.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "PropertyExpressionInterpreter",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/interpreter/PropertyExpressionInterpreter.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "PropertyQueries",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/query/PropertyQueries.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "PropertyQuery",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/query/PropertyQuery.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ProxyUtils",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/ProxyUtils.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "QualifierBackedEntityManagerResolver",
+      "path": "deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/entitymanager/QualifierBackedEntityManagerResolver.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "QuartzSchedulerProducer",
+      "path": "deltaspike/modules/scheduler/impl/src/main/java/org/apache/deltaspike/scheduler/impl/QuartzSchedulerProducer.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "QueryBuilder",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/builder/QueryBuilder.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "QueryInOutMapper",
+      "path": "deltaspike/modules/data/api/src/main/java/org/apache/deltaspike/data/api/mapping/QueryInOutMapper.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "QueryInvocationContext",
+      "path": "deltaspike/modules/data/api/src/main/java/org/apache/deltaspike/data/spi/QueryInvocationContext.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "QueryResult",
+      "path": "deltaspike/modules/data/api/src/main/java/org/apache/deltaspike/data/api/QueryResult.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "QueryStringExtractorFactory",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/util/jpa/QueryStringExtractorFactory.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "QueryStringPostProcessor",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/handler/QueryStringPostProcessor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "QueryUtils",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/util/QueryUtils.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "RepositoryMetadata",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/meta/RepositoryMetadata.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "RepositoryMetadataHandler",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/meta/RepositoryMetadataHandler.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "RepositoryMethodPrefix",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/meta/RepositoryMethodPrefix.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "RequestDependentBeanStorage",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/injection/RequestDependentBeanStorage.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "RequestResponseHolderListener",
+      "path": "deltaspike/modules/servlet/impl/src/main/java/org/apache/deltaspike/servlet/impl/produce/RequestResponseHolderListener.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "RequestScopedBean",
+      "path": "deltaspike/examples/jsf-examples/src/main/java/org/apache/deltaspike/example/scope/RequestScopedBean.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "RequestScopedLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/RequestScopedLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ResourceLoaderExtension",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/resourceloader/ResourceLoaderExtension.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "RunnableQuartzScheduler",
+      "path": "deltaspike/modules/scheduler/impl/src/main/java/org/apache/deltaspike/scheduler/impl/RunnableQuartzScheduler.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SchedulerControl",
+      "path": "deltaspike/modules/scheduler/api/src/main/java/org/apache/deltaspike/scheduler/spi/SchedulerControl.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SchedulerProducer",
+      "path": "deltaspike/modules/scheduler/impl/src/main/java/org/apache/deltaspike/scheduler/impl/SchedulerProducer.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SecurityDefinitionException",
+      "path": "deltaspike/modules/security/api/src/main/java/org/apache/deltaspike/security/api/authorization/SecurityDefinitionException.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SecurityException",
+      "path": "deltaspike/modules/security/api/src/main/java/org/apache/deltaspike/security/api/SecurityException.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SecurityStrategy",
+      "path": "deltaspike/modules/security/api/src/main/java/org/apache/deltaspike/security/spi/authorization/SecurityStrategy.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ServletConfigSource",
+      "path": "deltaspike/modules/servlet/impl/src/main/java/org/apache/deltaspike/servlet/impl/config/ServletConfigSource.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ServletContextHolder",
+      "path": "deltaspike/modules/servlet/impl/src/main/java/org/apache/deltaspike/servlet/impl/produce/ServletContextHolder.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SessionScopeLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/SessionScopeLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SessionScopedBean",
+      "path": "deltaspike/examples/jsf-examples/src/main/java/org/apache/deltaspike/example/scope/SessionScopedBean.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SetAccessiblePrivilegedAction",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/securitymanaged/SetAccessiblePrivilegedAction.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SettingsBean",
+      "path": "deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/config/SettingsBean.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SimpleCallbackDescriptor",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/config/view/metadata/SimpleCallbackDescriptor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SimpleSchedulerExample",
+      "path": "deltaspike/examples/scheduler-playground/src/main/java/org/apache/deltaspike/example/scheduler/SimpleSchedulerExample.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SimpleSchedulerJob1",
+      "path": "deltaspike/examples/scheduler-playground/src/main/java/org/apache/deltaspike/example/scheduler/SimpleSchedulerJob1.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SingletonLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/SingletonLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SingularAttributeSelection",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/SingularAttributeSelection.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SkipInternalProcessingException",
+      "path": "deltaspike/modules/security/impl/src/main/java/org/apache/deltaspike/security/impl/authorization/SkipInternalProcessingException.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SpecializesLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/SpecializesLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "StringUtils",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/StringUtils.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SubstringFromTo",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/strings/SubstringFromTo.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "Sum",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/numeric/Sum.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "SystemPropertyConfigSource",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/SystemPropertyConfigSource.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "TargetViewConfigProvider",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/config/view/TargetViewConfigProvider.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ThrottledInterceptor",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/throttling/ThrottledInterceptor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ThrottledStrategy",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/throttling/ThrottledStrategy.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ToUpperCaseEchoService",
+      "path": "deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/echo/ToUpperCaseEchoService.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ToUpperStringParameterUpdate",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/param/ToUpperStringParameterUpdate.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "TransactionBeanEntry",
+      "path": "deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/transaction/context/TransactionBeanEntry.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "TransactionBeanStorage",
+      "path": "deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/transaction/context/TransactionBeanStorage.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "TransactionHelper",
+      "path": "deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/api/transaction/TransactionHelper.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "TransactionStrategy",
+      "path": "deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/transaction/TransactionStrategy.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "TypedLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/TypedLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "TypedPropertyCriteria",
+      "path": "deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/query/TypedPropertyCriteria.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ValidatorInvocationHandler",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/injection/proxy/ValidatorInvocationHandler.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ValidatorWrapper",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/injection/ValidatorWrapper.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ViewAccessBeanAccessHistory",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/viewaccess/ViewAccessBeanAccessHistory.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ViewAccessBeanHolder",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/viewaccess/ViewAccessBeanHolder.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ViewAccessContextArtifactProducer",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/viewaccess/ViewAccessContextArtifactProducer.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ViewAccessContextManager",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/scope/viewaccess/ViewAccessContextManager.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ViewAccessViewHistory",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/viewaccess/ViewAccessViewHistory.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ViewActionController",
+      "path": "deltaspike/examples/jsf-playground/src/main/java/org/apache/deltaspike/playground/windowhandling/ViewActionController.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ViewConfig",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/config/view/ViewConfig.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ViewConfigDescriptor",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/config/view/metadata/ViewConfigDescriptor.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ViewConfigInheritanceStrategy",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/config/view/ViewConfigInheritanceStrategy.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ViewConfigNode",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/config/view/ViewConfigNode.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ViewConfigResolver",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/config/view/metadata/ViewConfigResolver.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ViewControllerRefLiteral",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/ViewControllerRefLiteral.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ViewControllerUtils",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/util/ViewControllerUtils.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "ViewScopedBean",
+      "path": "deltaspike/examples/jsf-examples/src/main/java/org/apache/deltaspike/example/scope/ViewScopedBean.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "WindowContextQuotaHandler",
+      "path": "deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/scope/window/WindowContextQuotaHandler.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "WindowContextQuotaHandlerCache",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/window/WindowContextQuotaHandlerCache.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "WindowIdComponent",
+      "path": "deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/component/window/WindowIdComponent.java",
+      "target_state_before_write": "pristine"
+    },
+    {
+      "class": "WindowIdHolder",
+      "path": "deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/window/WindowIdHolder.java",
+      "target_state_before_write": "pristine"
+    }
+  ],
+  "skipped": [
+    {
+      "class": "HttpParams",
+      "reason": "ambiguous_source_path",
+      "candidates": [
+        "deltaspike/examples/data-examples/src/main/java/org/apache/deltaspike/example/HttpParams.java",
+        "deltaspike/examples/jpa-examples/src/main/java/org/apache/deltaspike/example/HttpParams.java"
+      ]
+    },
+    {
+      "class": "LogProducer",
+      "reason": "ambiguous_source_path",
+      "candidates": [
+        "deltaspike/examples/data-examples/src/main/java/org/apache/deltaspike/example/LogProducer.java",
+        "deltaspike/examples/jpa-examples/src/main/java/org/apache/deltaspike/example/LogProducer.java"
+      ]
+    },
+    {
+      "class": "Login",
+      "reason": "source_path_not_found",
+      "expected": "org/apache/deltaspike/example/security/requestedpage/cdi/Login.java"
+    },
+    {
+      "class": "ParameterValue",
+      "reason": "source_path_not_found",
+      "expected": "org/apache/deltaspike/core/util/metadata/builder/ParameterValue.java"
+    },
+    {
+      "class": "Resources",
+      "reason": "ambiguous_source_path",
+      "candidates": [
+        "deltaspike/examples/data-examples/src/main/java/org/apache/deltaspike/example/Resources.java",
+        "deltaspike/examples/jpa-examples/src/main/java/org/apache/deltaspike/example/Resources.java"
+      ]
+    }
+  ],
+  "restored_from_previous_run": 0
+}

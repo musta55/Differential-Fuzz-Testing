@@ -1,0 +1,102 @@
+= DeltaSpike Service Provider Interface (SPI)
+
+:Notice: Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. See the NOTICE file distributed with this work for additional information regarding copyright ownership. The ASF licenses this file to you under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at. http://www.apache.org/licenses/LICENSE-2.0 . Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR  CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+
+DeltaSpike provides an Service Provider Interface (SPI) to enable you to extend it.
+
+== Deactivatable
+
+This mechanism is only used for artifacts *like* implementations of (`javax.enterprise.inject.spi.Extension`) which
+*can not* be deactivated with standard CDI mechanisms.
+
+This interface is just a marker interface which is implemented by all pre-configured DeltaSpike artifacts which can be deactivated manually (e.g. to improve the performance if a part isis not needed, to provide a custom implementation if the default implementation isis not pluggable by default or to bypass an implementation which causes an issue (in this case please also *contact us* and we will fix it)).
+
+To deactivate a class it is required to implement `ClassDeactivator`. Returning 'false' or 'true' allows to
+de-/activate the class in question. Retuning null means that the current class-deactivator does not have
+information about the class in question and can not provide a result. Since `ClassDeactivator` implementations are
+configured with the low-level configuration of DeltaSpike, the class-deactivator with the highest ordinal has the final decision. DeltaSpike itself does not deactivate an implementation, however, an add-on or a third-party portable CDI extension based on DeltaSpike (Core+) can use the concept to deactivate a default implementation of DeltaSpike in favour of its own implementation.
+
+IMPORTANT: Due to the ordinal feature of the low-level configuration approach it is possible that a class-deactivator with a higher ordinal, for example used in a concrete project, can re-activate a deactivated implementation.
+
+*Please note* that you might have to deactivate the parts of the add-on or third-party CDI extension which relies on its own implementation. Therefore, you should **be really careful with re-activation**.) The implementation should be stateless because the result will be cached and
+as soon as everything is initialized the class-deactivators will not be used any longer.
+
+=== ClassDeactivator
+
+A class-deactivator allows to specify deactivated classes.
+
+[source,java]
+----------------------------------------------------------------------------
+//This class needs to be configured via one of the supported configuration sources!
+public class CustomClassDeactivator implements ClassDeactivator
+{
+    @Override
+    public Boolean isActivated(Class<? extends Deactivatable> targetClass)
+    {
+        if (targetClass.equals(MyClass.class))
+        {
+            return Boolean.FALSE;
+        }
+        return null; //no result for the given class
+    }
+}
+----------------------------------------------------------------------------
+
+A class-deactivator will be resolved from the environment via the default resolvers or via a custom resolver which allows to use any type of configuration-format. (see `org.apache.deltaspike.core.api.config.ConfigResolver`). The key is the fully qualified name of the interface (`org.apache.deltaspike.core.spi.activation.ClassDeactivator`).
+
+Starting with (TBD v1.5.1), Apache DeltaSpike ships a default Class Deactivator.  It is designed mostly for testing purposes, but is meant to reduce code overhead
+and allow configuration to drive classes to deactivate.  It is built upon the `ConfigSource` paradigm, which allows for configuration based keys to deactivate your
+classes.  If you're not using any other ConfigSource, you can simply add entries to `META-INF/apache-deltaspike.properties` to disable classes at runtime.  Here's an
+example configuration
+
+[source]
+----------------------------------------------------------------------------
+org.apache.deltaspike.core.spi.activation.ClassDeactivator=org.apache.deltaspike.core.impl.activation.DefaultClassDeactivator
+deactivate.org.apache.deltaspike.test.core.impl.activation.DeactivatedClass=true
+----------------------------------------------------------------------------
+
+By listing the class in the properties file and setting the value to `true`, the class will be deactivated.  This is valid for anything where `Boolean.valueOf` returns true.
+
+== ConfigSource
+
+[TODO]
+
+=== ConfigSourceProvider
+
+[TODO]
+
+=== BaseConfigPropertyProducer
+
+[TODO]
+
+
+== InterceptorStrategy
+
+
+[TODO]
+
+== Global Alternative
+
+There are several application servers (using CDI 1.0) which can not handle alternative CDI beans correctly (e.g. due to
+a too strict interpretation or a broken implementation). Therefore, DeltaSpike allows to use the standard `@Alternative` annotation and an additional configuration entry for DeltaSpike which allows to use the alternative implementation as a global alternative.
+
+.Standard CDI alternative implementation (without the required XML config)
+[source,java]
+----
+public class CustomBean
+{
+}
+
+@Alternative
+//...
+public class AlternativeCustomBean extends CustomBean
+{
+}
+----
+
+Instead of configuring the alternative in the beans.xml, a global alternative needs to be configured in /META-INF/apache-deltaspike.properties. CDI 1.1 should fix this issue and migrating to it means to remove the configuration entry for DeltaSpike again and move to the standard CDI configuration approach.
+
+[source]
+----
+custom.CustomBean=custom.AlternativeCustomBean
+----

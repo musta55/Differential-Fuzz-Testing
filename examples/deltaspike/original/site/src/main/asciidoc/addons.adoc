@@ -1,0 +1,37 @@
+:notoc:
+
+= Add-ons
+
+:Notice: Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. See the NOTICE file distributed with this work for additional information regarding copyright ownership. The ASF licenses this file to you under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at. http://www.apache.org/licenses/LICENSE-2.0 . Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR  CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+
+Add-ons extend the functionality of DeltaSpike and several have been developed external to the DeltaSpike project. Brief information is given here about each of the add-ons, with details of where they can be obtained from.
+
+== lbitonti@github
+This GitHub account contains e.g. a DBUnit Add-on for the Test-Control-Module of DeltaSpike.
+
+**Source code:** https://github.com/lbitonti/deltaspike-dbunit
+
+== os890@github
+This GitHub account contains several DeltaSpike Add-ons e.g. to integrate CDI with other frameworks.
+
+**Source code:** https://github.com/os890/
+
+== rmannibucau@github
+This GitHub account contains several DeltaSpike Add-ons e.g. an integration with the TomEE PasswordCipher API.
+
+**Source code:** https://github.com/rmannibucau/
+
+== Monitoring
+`ds-monitoring-addon` provides simple monitoring for several common use-cases (exceptions, performance, audits), collecting information about the monitored method-invocations during a request and enabling you to process the entries based on your requirements. For more information about its use and implementation, see http://os890.blogspot.com.au/2014/04/add-on-monitoring-lite-with-deltaspike.html[os890: [add-on\] monitoring lite with deltaspike].
+
+**Source code:** https://github.com/os890/ds-monitoring-addon
+
+== Spring Bridge
+`ds-spring-bridge-addon` is a two-way cdi-spring bridge that allows spring-beans to be injected into cdi-beans and vice versa provided the concepts, for example qualifiers, are compatible. For more information about its use and implementation, see http://os890.blogspot.com.au/2013/12/add-on-spring-bridge-with-deltaspike.html[os890: [add-on\] spring-bridge with deltaspike].
+
+**Source code:** https://github.com/os890/ds-spring-bridge-addon.
+
+== Disruptor
+`ds-disruptor-addon` improves CDI synchronous event-processing performance by creating a disruptor process for every observer method, enabling CDI synchronous events in conjunction with asynchronous observers. This add-on currently works with Apache TomEE and JBoss AS 7. For more information about its use and implementation, see http://os890.blogspot.com.au/2014/05/faster-cdi-like-events.html[os890: [add-on\] fast event processing with disruptor + deltaspike].
+
+**Source code:** https://github.com/os890/ds-disruptor-addon

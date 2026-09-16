@@ -1,0 +1,220 @@
+= External Examples and Templates
+
+:Notice: Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. See the NOTICE file distributed with this work for additional information regarding copyright ownership. The ASF licenses this file to you under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at. http://www.apache.org/licenses/LICENSE-2.0 . Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR  CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+
+A number of DeltaSpike examples and templates have been developed external to the DeltaSpike project. These extend the DeltaSpike resources from which you can see DeltaSpike in action. Brief information is given here about the examples and templates, with details of where they can be obtained from.
+
+== Books (free/online)
+
+**CDI@Work (chapter about DeltaSpike):** http://cdiatwork.irian.at/
+
+CDI@Work is a free online book about CDI as well as Apache DeltaSpike.
+It covers basic information about CDI and DeltaSpike up to more advanced use-cases.
+An example for the latter is a type-safe configuration (interface-only)
+which allows you to resolve the configured values even from dynamic config-sources like a database and
+store them in a custom Config-Scoped cache which can be refreshed via CDI-events or a CRON based task or manually via JMX.
+
+The https://github.com/CDIatWork/[GitHub account] contains repositories e.g. for the sample application called IdeaFork.
+The commit-history follows the steps in the book. In most cases every commit translates to one step in the book.
+(Chapters are released once they are ready.)
+
+== Presentations
+
+=== Apache DeltaSpike: The CDI toolbox
+CDI portable extensions are one of greatest features of Java EE allowing the platform to be extended in a clean and portable way. But allowing extension is just part of the story. CDI opens the door to a whole new eco-system for Java EE, but it’s not the role of the specification to create these extensions.
+Apache DeltaSpike is the project that leads this brand new eco-system by providing useful extension modules for CDI applications as well as tools to ease the creation of new ones.
+In this session, we’ll start by presenting the DeltaSpike toolbox and show how it helps you to develop for CDI. Then we’ll describe the major extensions included in Deltaspike, including  'configuration', 'scheduling' and 'data'.
+
+
+**Slides:** http://www.slideshare.net/antoinesd/apache-deltaspike-the-cdi-toolbox
+
+**Video:** https://www.youtube.com/watch?v=QbNdFvNPvVU
+
+**Event:** http://www.meetup.com/JBoss-User-Group-Worldwide/events/218755922/
+
+=== DeltaSpike: CDI extensions of the world, unite!
+Several popular CDI extension frameworks like Seam 3 and MyFaces CODI have faded out over the years. But not to worry - their functionality is taken over by projects like Picketlink, Agorava, and mainly DeltaSpike, a new Apache project that wants CDI extension authors to unite in an effort to make the life of web application developers easier. Even without a five year plan!
+
+**Slides:** http://devconf.cz/filebrowser/download/414
+
+**Video:** https://www.youtube.com/watch?v=2FUNpzd1Nb8
+
+=== Apache DeltaSpike
+Presentation about Apache DeltaSpike
+
+**Slides:** http://www.slideshare.net/os890/apache-deltaspike
+
+=== MyFaces CODI and JBoss Seam3 become Apache DeltaSpike
+These slides show how to use type-safe mechanisms provided by MyFaces CODI for developing JSF applications which are more type-safe and easier to maintain as well as common pitfalls. Beyond that there is an basic overview of Apache DeltaSpike.
+
+**Slides:** http://www.slideshare.net/os890/myfaces-codi-and-jboss-seam3-become-apache-deltaspike
+
+=== Migrating a JSF-Based Web Application from Spring 3 to Java EE 7 and CDI
+This talk is a detailed case study about the migration of a JSF-based web application from Spring 3 to Java EE 7 and CDI. It is presented at the JavaOne 2014 conference.
+
+**Slides:** http://www.slideshare.net/MarioLeanderReimer/migrating-a-jsfbased-web-application-from-spring-3-to-java-ee-7-and-cdi
+
+**Video:** https://parleys.com/play/543faae5e4b06e1184ae423a/about
+
+=== [de] Flexibilitaet mit CDI und Apache DeltaSpike
+Presentation about DeltaSpike
+
+**Slides:** http://www.slideshare.net/os890/flexibilitaet-mit-cdi-und-apache-delta-spike
+
+=== [pt-BR] Deixando de refazer a roda com Apache DeltaSpike
+CDI e DeltaSpike presentation in TDC - The Developers Conference 2015
+
+**Video and Slides:** http://www.infoq.com/br/presentations/deixando-de-refazer-a-roda-com-apache-deltaspike
+
+=== Apache Deltaspike the CDI Toolbox (Java One 2015)
+
+**Slides:** https://pt.slideshare.net/antoinesd/apache-deltaspike-the-cdi-toolbox-java-one-2015
+
+=== JavaOne 2015 - Rafael Benevides - Apache DeltaSpike, the CDI Toolbox
+
+**Video:** https://www.youtube.com/watch?v=3McmEi3cs_s
+
+=== Simplificando la persistencia de datos con Apache DeltaSpike Data (Java User Group de Nicaragua)
+
+**Slide:** https://speakerdeck.com/danieldiasjava/simplificando-la-persistencia-de-datos-con-apache-deltaspike-data
+
+**Video:** https://youtu.be/djM51tlJuLs
+
+**Example:** https://github.com/Daniel-Dos/danieldiasjava-palestras/tree/master/JUGNicaragua
+
+== Examples
+
+=== IdeaFork (full)
+This example is a Java EE6 application which illustrates several features of CDI and DeltaSpike.
+It covers features of all modules provided by DeltaSpike.
+There are profiles to create web-archives for Apache TomEE, JBoss AS7 (and WildFly) and Oracle GlassFish3.
+The complexity is mixed. There are some simple examples as well as some more advanced cases.
+The repository contains every step (one commit is one step) described in the online-book.
+
+**Source code:** https://github.com/CDIatWork/IdeaFork
+
+=== IdeaFork (lite)
+This example is based on IdeaFork (full),
+but without some indirections which were needed to demonstrate different features of CDI and DeltaSpike (in a simple Application).
+
+**Source code (beta - work in progress):** https://github.com/CDIatWork/IdeaForkLite_Beta
+
+
+=== Confess 2012 Workshop Demo
+This example was prepared for the Confess workshop and demonstrates how to use DeltaSpike instead of and side-by-side with MyFaces CODI. The secured web application demonstrates presenting users with differentiating content based on their account status.
+
+**Source code:** https://github.com/confess/confess2012_deltaspike
+
+=== Fullstack EE6+ with DeltaSpike
+Simple example based on Java EE6+ and DeltaSpike (tested with EE6 and EE7).
+
+**Source code:** https://github.com/os890/ee6-ds-demo
+
+=== Fullstack CODI to DeltaSpike
+This pair of examples show how to achieve the most important MyFaces CODI features with DeltaSpike and also how to migrate a CODI project to DeltaSpike. The examples are basic, compacting core CODI features into just a few JSF pages, and are intended for deployment with TomEE.
+
+**Source code:** https://github.com/os890/tomee_mf_stack_001
+
+* CODI version in master branch
+* Migrated DeltaSpike version in codi2ds branch
+
+=== JBoss Quickstarts
+The JBoss quickstarts are small working examples that demonstrate recommended practices for specific Java EE technology use cases. A subset of these quickstarts are dedicated to demonstrating DeltaSpike, including custom authorization restrictions using annotations, constructing and modifying beans, extending the influence of CDI using BeanManager, and deactivating DeltaSpike features.
+
+**Source code:** https://github.com/jboss-developer/jboss-wfk-quickstarts
+
+=== DeltaSpike Examples
+A collection of example applications demonstrating the features of the DeltaSpike project.
+
+**Source code:** https://github.com/rsmeral/deltaspike-examples
+
+=== [pt-BR] DeltaSpike microblog example
+Application that shows a microblog using DeltaSpike
+
+**Source code:** https://github.com/rafabene/demo_deltaspike
+
+=== Why you should consider using Apache DeltaSpike
+Blog post demonstrating 5 features of Apache DeltaSpike
+
+**Blog post:** http://www.thedevpiece.com/why-you-should-consider-using-apache-deltaspike/
+
+=== [pt-BR] Rest Application with DeltaSpike Data
+Simple example based on MicroProfile(OpenApi,Payara-Micro) and DeltaSpike-data
+
+**Source code:** https://github.com/Daniel-Dos/DanielDiasjava-Blog/tree/master/ProjetoDeltaSpike
+
+=== [pt-BR] CRUD-Deltaspike-CDI-Angular
+Simple CRUD example based on SparkJava and DeltaSpike-data
+
+**Source code:** https://github.com/SouJava-Rio/soujava-rio-labs/tree/master/microframeworks/spark-samples/CRUD-Deltaspike-CDI-Angular
+
+=== [pt-BR] CRUD-Deltaspike-CDI-Angular
+Simple CRUD example based on JavaLin and DeltaSpike-data
+
+**Source code:** https://github.com/Daniel-Dos/DanielDiasjava-Blog/tree/master/Projeto-Cloud/javalin
+
+=== [pt-BR] jax-rs-sample-cdi-deltaspike-data
+Simple CRUD example based on jax-rs(resteasy) and DeltaSpike-data for Tomcat
+
+**Source code:** https://github.com/SouJava-Rio/soujava-rio-labs/tree/master/jax-rs-samples/Jax-rs-deltaspike-angular2-4/jax-rs-sample-cdi-deltaspike-data
+
+=== [spanish] Oracle Helidon with DeltaSpike-Data
+Simple CRUD example based on Helidon and DeltaSpike-data
+
+**Source code:** https://github.com/Daniel-Dos/danieldiasjava-palestras/tree/master/JUGNicaragua
+
+=== [pt-BR] Eclipse vertx with DeltaSpike-Data
+Simple example based on vertx and DeltaSpike-data
+
+**Source code:** https://github.com/Daniel-Dos/DanielDiasjava-Blog/tree/master/Projeto-Cloud/vertx
+
+=== [pt-BR] Eclipse vertx with DeltaSpike-Data
+Simple example based on vertx and DeltaSpike-data
+
+**Source code:** https://github.com/Daniel-Dos/DanielDiasjava-Blog/tree/master/Projeto-Cloud/vertx
+
+=== [pt-BR] Javalin with DeltaSpike-Data
+Simple example based on Javalin and DeltaSpike-data
+
+**Source code:** https://github.com/Daniel-Dos/DanielDiasjava-Blog/tree/master/Projeto-Cloud/javalin
+
+== Magazines
+
+=== [pt-BR] Brazilian Java Magazine
+Apache DeltaSpike: CDI Programável
+
+**Online article:** http://www.devmedia.com.br/apache-deltaspike-cdi-programavel/31982
+
+== Interviews
+
+=== [pt-BR] InfoQ Brazil
+Apache DeltaSpike, a API de extensions do CDI
+
+**Online interview:** http://www.infoq.com/br/interviews/entrevista-rafael-benevides-delta-spike
+
+=== [pt-BR] InfoQ Brazil
+O que é DeltaSpike?
+
+**Online interview:** https://www.youtube.com/watch?v=jtCuxfPxDE8
+
+== Templates
+=== Java SE + CDI + DS
+**Source code:** https://github.com/os890/javase-cdi-ds-project-template
+
+=== JSF + CDI + DS (Servlet-Container)
+**Source code:** https://github.com/os890/javaweb-cdi-ds-project-template
+
+=== EJB + CDI + DS (Module)
+**Source code:** https://github.com/os890/javaee_cdi_ejb_ds_project_template
+
+=== JSF + EJB + CDI + DS (EE-Server)
+**Source code:** https://github.com/os890/javaee_jsf_cdi_ejb_ds_project_template
+
+=== JSF + JPA + CDI + DS-Data (diff. EE-Server-Profiles)
+**Source code:** https://github.com/os890/javaee_jsf_cdi_jpa_data_ds_project_template
+
+=== JSF + JPA + CDI + DS-Data (Apache TomEE)
+**Source code:** https://github.com/os890/ds-data-project-template
+
+=== JSF + CDI + DS (Apache TomEE)
+**Source code:** https://github.com/os890/tomee-ds-project-template
