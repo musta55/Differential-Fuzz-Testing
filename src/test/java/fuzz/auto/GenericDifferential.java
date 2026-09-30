@@ -28,9 +28,9 @@ import org.junit.jupiter.api.Assertions;
  * Reflection-based differential oracle, driven by a per-project JSON manifest.
  *
  * <p>A generated harness calls {@link #run(FuzzedDataProvider, String, String)} with its project
- * and method id. This engine looks the spec up in {@code /<project>/manifest.json}, resolves the
- * compiled {@code <Class>Original} and {@code <Class>Refactored} snapshots, builds the same
- * receiver and arguments for both, invokes each on a watchdog thread, and asserts equivalence.
+ * and method id. This engine looks the spec up in {@code /<project>/manifest.json}, loads the class
+ * twice under its real name, once from each side's {@link SideLoader}, builds the same receiver and
+ * arguments for both, invokes each on a watchdog thread, and asserts equivalence.
  *
  * <h2>Identical inputs without deep-copying</h2>
  * Arguments are no longer restricted to scalars, so they cannot be cloned generically — and handing
@@ -95,8 +95,13 @@ public final class GenericDifferential
     }
     statsHookInstalled = true;
     Runtime.getRuntime().addShutdownHook(new Thread(
-        () -> System.out.println("[DIFF-STATS] inputs=" + inputCount.get()
-            + " comparisons=" + comparisonCount.get()),
+        new Runnable() {
+          @Override
+          public void run() {
+            System.out.println("[DIFF-STATS] inputs=" + inputCount.get()
+                + " comparisons=" + comparisonCount.get());
+          }
+        },
         "diff-stats"));
   }
 
@@ -127,9 +132,18 @@ public final class GenericDifferential
     JazzerCoverage.installIfRequested();
     installStatsHook();
     inputCount.incrementAndGet();
+    try {
+      runOnce(data, project, id);
+    } finally {
+      JazzerCoverage.collectAfterInput();
+    }
+  }
+
+  private static void runOnce(FuzzedDataProvider data, String project, String id) throws Throwable
+  {
     Spec s = spec(project, id);
-    Class<?> oCls = Class.forName(s.original);
-    Class<?> rCls = Class.forName(s.refactored);
+    Class<?> oCls = SideLoader.of(project, SideLoader.ORIGINAL).load(s.original);
+    Class<?> rCls = SideLoader.of(project, SideLoader.REFACTORED).load(s.refactored);
 
     // One capture per iteration, replayed twice below.
     //
@@ -191,8 +205,8 @@ public final class GenericDifferential
     boolean receiversStartedEqual = a.receiver != null && b.receiver != null
         && Digest.diff(a.receiver, b.receiver) == null;
 
-    Outcome o = invokeTimed(oM, a.receiver, a.args);
-    Outcome r = invokeTimed(rM, b.receiver, b.args);
+    Outcome o = invokeTimed(oM, a.receiver, a.args, oCls);
+    Outcome r = invokeTimed(rM, b.receiver, b.args, rCls);
     announceRan();
     comparisonCount.incrementAndGet();
 
@@ -219,6 +233,16 @@ public final class GenericDifferential
    * bytes, so the two sides receive equal-but-independent values.
    */
   static Side buildSide(byte[] seed, Class<?> cls, Method m, Spec s)
+  {
+    ClassLoader previous = SideLoader.useContextOf(cls);
+    try {
+      return buildSideIn(seed, cls, m, s);
+    } finally {
+      Thread.currentThread().setContextClassLoader(previous);
+    }
+  }
+
+  private static Side buildSideIn(byte[] seed, Class<?> cls, Method m, Spec s)
   {
     ReplayProvider p = new ReplayProvider(seed);
     Side side = new Side();
@@ -288,36 +312,48 @@ public final class GenericDifferential
     boolean isCtor;
   }
 
+  private static final Map<String, JsonObject> MANIFESTS = new HashMap<>();
+
+  /** The parsed {@code /<project>/manifest.json}, read from the test classpath once. */
+  static synchronized JsonObject manifest(String project) throws Exception
+  {
+    JsonObject root = MANIFESTS.get(project);
+    if (root == null) {
+      String path = "/" + project + "/manifest.json";
+      try (Reader r = new InputStreamReader(
+          Objects.requireNonNull(GenericDifferential.class.getResourceAsStream(path),
+              "manifest not found on classpath: " + path), "UTF-8")) {
+        root = JsonParser.parseReader(r).getAsJsonObject();
+      }
+      MANIFESTS.put(project, root);
+    }
+    return root;
+  }
+
   static synchronized Spec spec(String project, String id) throws Exception
   {
     Map<String, Spec> byId = CACHE.get(project);
     if (byId == null) {
       byId = new HashMap<>();
-      String path = "/" + project + "/manifest.json";
-      try (Reader r = new InputStreamReader(
-          Objects.requireNonNull(GenericDifferential.class.getResourceAsStream(path),
-              "manifest not found on classpath: " + path), "UTF-8")) {
-        JsonObject root = JsonParser.parseReader(r).getAsJsonObject();
-        JsonArray methods = root.getAsJsonArray("methods");
-        for (int i = 0; i < methods.size(); i++) {
-          JsonObject m = methods.get(i).getAsJsonObject();
-          Spec sp = new Spec();
-          sp.original = m.get("original").getAsString();
-          sp.refactored = m.get("refactored").getAsString();
-          sp.method = m.get("method").getAsString();
-          sp.isStatic = m.get("static").getAsBoolean();
-          sp.isCtor = m.has("ctor") && m.get("ctor").getAsBoolean();
-          JsonArray ps = m.getAsJsonArray("params");
-          for (int j = 0; j < ps.size(); j++) {
-            sp.sourceParams.add(ps.get(j).getAsString());
-          }
-          // Parameter TYPES are not taken from the manifest. Source parsing cannot resolve a
-          // simple name like `Configuration` to an FQN without replicating Java's import rules,
-          // and getting it wrong is a silent NoSuchMethodException. Arity plus the compiled
-          // class is enough, and reflection then gives the real types.
-          sp.arity = m.has("arity") ? m.get("arity").getAsInt() : ps.size();
-          byId.put(m.get("id").getAsString(), sp);
+      JsonArray methods = manifest(project).getAsJsonArray("methods");
+      for (int i = 0; i < methods.size(); i++) {
+        JsonObject m = methods.get(i).getAsJsonObject();
+        Spec sp = new Spec();
+        sp.original = m.get("original").getAsString();
+        sp.refactored = m.get("refactored").getAsString();
+        sp.method = m.get("method").getAsString();
+        sp.isStatic = m.get("static").getAsBoolean();
+        sp.isCtor = m.has("ctor") && m.get("ctor").getAsBoolean();
+        JsonArray ps = m.getAsJsonArray("params");
+        for (int j = 0; j < ps.size(); j++) {
+          sp.sourceParams.add(ps.get(j).getAsString());
         }
+        // Parameter TYPES are not taken from the manifest. Source parsing cannot resolve a
+        // simple name like `Configuration` to an FQN without replicating Java's import rules,
+        // and getting it wrong is a silent NoSuchMethodException. Arity plus the compiled
+        // class is enough, and reflection then gives the real types.
+        sp.arity = m.has("arity") ? m.get("arity").getAsInt() : ps.size();
+        byId.put(m.get("id").getAsString(), sp);
       }
       CACHE.put(project, byId);
     }
@@ -435,16 +471,27 @@ public final class GenericDifferential
     }
   }
 
-  private static Outcome invokeTimed(Method m, Object inst, Object[] args)
+  private static Outcome invokeTimed(final Method m, final Object inst, final Object[] args,
+      Class<?> side)
   {
-    return timed(() -> invoke(m, inst, args));
+    // return timed(() -> invoke(m, inst, args));
+    return timed(new Callable<Outcome>() {
+    @Override
+      public Outcome call() throws Exception {
+          return invoke(m, inst, args);
+      }
+    }, side);
   }
 
-  /** Run on a watchdog thread so a runaway input becomes a TIMEOUT rather than a stall. */
-  private static Outcome timed(Callable<Outcome> body)
+  /**
+   * Run on a watchdog thread so a runaway input becomes a TIMEOUT rather than a stall. The thread's
+   * context class loader is the side's own, as it would be inside that version of the project.
+   */
+  private static Outcome timed(Callable<Outcome> body, Class<?> side)
   {
     FutureTask<Outcome> task = new FutureTask<>(body);
     Thread t = new Thread(task, "diff-invoke");
+    t.setContextClassLoader(side.getClassLoader());
     t.setDaemon(true);
     t.start();
     try {
@@ -520,6 +567,10 @@ public final class GenericDifferential
       if (a.getClass().isArray() && b.getClass().isArray()) {
         return Objects.deepEquals(a, b);
       }
+      if (a instanceof Enum && b instanceof Enum) {
+        // The two sides' enum classes come from different loaders, so equals() is always false.
+        return ((Enum<?>) a).name().equals(((Enum<?>) b).name());
+      }
       return Objects.equals(a, b);
     } catch (Throwable t) {
       return Digest.of(a).equals(Digest.of(b));
@@ -534,8 +585,14 @@ public final class GenericDifferential
    */
   private static void runCtor(byte[] seed, Spec s, Class<?> oCls, Class<?> rCls) throws Throwable
   {
-    Constructor<?> oc = resolveCtor(oCls, s);
-    Constructor<?> rc = resolveCtor(rCls, s);
+    // An abstract class's constructor only ever runs as a subclass's super(...) call. newInstance
+    // on it throws InstantiationException on BOTH sides before any constructor code executes, and
+    // the comparison below scores two equal exceptions as agreement: every input, a false EQUIVALENT.
+    if (Modifier.isAbstract(oCls.getModifiers()) || Modifier.isAbstract(rCls.getModifiers())) {
+      skip(s, "abstract class: its constructor cannot be invoked directly");
+    }
+    final Constructor<?> oc = resolveCtor(oCls, s);
+    final Constructor<?> rc = resolveCtor(rCls, s);
     oc.setAccessible(true);
     rc.setAccessible(true);
     for (Class<?> pt : oc.getParameterTypes()) {
@@ -543,8 +600,8 @@ public final class GenericDifferential
         skip(s, "constructor parameter has no buildable form: " + pt.getName());
       }
     }
-    Object[] argsA;
-    Object[] argsB;
+    final Object[] argsA;
+    final Object[] argsB;
     try {
       argsA = buildCtorArgs(seed, oc);
       argsB = buildCtorArgs(seed, rc);
@@ -552,8 +609,20 @@ public final class GenericDifferential
       noteUnbuildable("constructor arguments", e);
       return; // transient
     }
-    Outcome o = timed(() -> newInstanceOutcome(oc, argsA));
-    Outcome r = timed(() -> newInstanceOutcome(rc, argsB));
+    // Outcome o = timed(() -> newInstanceOutcome(oc, argsA));
+    Outcome o = timed(new Callable<Outcome>() {
+    @Override
+      public Outcome call() throws Exception {
+          return newInstanceOutcome(oc, argsA);
+      }
+    }, oCls);
+    // Outcome r = timed(() -> newInstanceOutcome(rc, argsB));
+    Outcome r = timed(new Callable<Outcome>() {
+    @Override
+      public Outcome call() throws Exception {
+          return newInstanceOutcome(rc, argsB);
+      }
+    }, rCls);
     announceRan();
     comparisonCount.incrementAndGet();
 
@@ -578,13 +647,18 @@ public final class GenericDifferential
 
   private static Object[] buildCtorArgs(byte[] seed, Constructor<?> c)
   {
-    ReplayProvider p = new ReplayProvider(seed);
-    java.lang.reflect.Type[] pts = c.getGenericParameterTypes();
-    Object[] args = new Object[pts.length];
-    for (int i = 0; i < pts.length; i++) {
-      args[i] = ObjectFactory.build(p, pts[i]);
+    ClassLoader previous = SideLoader.useContextOf(c.getDeclaringClass());
+    try {
+      ReplayProvider p = new ReplayProvider(seed);
+      java.lang.reflect.Type[] pts = c.getGenericParameterTypes();
+      Object[] args = new Object[pts.length];
+      for (int i = 0; i < pts.length; i++) {
+        args[i] = ObjectFactory.build(p, pts[i]);
+      }
+      return args;
+    } finally {
+      Thread.currentThread().setContextClassLoader(previous);
     }
-    return args;
   }
 
   static Constructor<?> resolveCtor(Class<?> c, Spec s) throws NoSuchMethodException

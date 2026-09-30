@@ -35,19 +35,19 @@ public class {harness}
 
 def main(project, dur):
     projkey = project.replace("-", "_")
-    man = json.load(open(os.path.join(MODULE, "src/test/resources", project, "manifest.json")))
-    # harnesses live in a SEPARATE tree from the project source (Dataset/), per-project
+    manifest_json = json.load(open(os.path.join(MODULE, "src/test/resources", project, "manifest.json")))
+    # harnesses live in their own per-project tree, apart from the compiled sides (target/sides/)
     outdir = os.path.join(MODULE, "src/test/fuzzing", project, "fuzz/auto", projkey)
     if os.path.isdir(outdir):
         for f in os.listdir(outdir):
             if f.endswith("FuzzTest.java"):
                 os.remove(os.path.join(outdir, f))
     os.makedirs(outdir, exist_ok=True)
-    for e in man["methods"]:
-        harness = "Auto_" + e["id"].replace(".", "_") + "_FuzzTest"
+    for method in manifest_json["methods"]:
+        harness = "Auto_" + method["id"].replace(".", "_") + "_FuzzTest"
         open(os.path.join(outdir, harness + ".java"), "w").write(
-            TEMPLATE.format(projkey=projkey, project=project, id=e["id"], harness=harness, dur=dur))
-    print(f"generated {len(man['methods'])} harnesses in fuzz.auto.{projkey} (maxDuration={dur})")
+            TEMPLATE.format(projkey=projkey, project=project, id=method["id"], harness=harness, dur=dur))
+    print(f"generated {len(manifest_json['methods'])} harnesses in fuzz.auto.{projkey} (maxDuration={dur})")
 
 
 if __name__ == "__main__":

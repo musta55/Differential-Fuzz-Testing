@@ -8,7 +8,6 @@ project, so nothing about a target project is hard-coded in a script.
       "deltaspike": {
         "original":   "/abs/path/projects/before/deltaspike",
         "refactored": "/abs/path/projects/after/deltaspike",
-        "projectDir": "/abs/path/projects/before/deltaspike",
         "jar":        "/abs/.../deltaspike-differential-fuzz-testing.jar",
         "java":       "8",
         "registered": "2026-09-15T12:00:00"
@@ -30,7 +29,7 @@ MODULE = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 REGISTRY = os.path.join(MODULE, "projects.json")
 
 # Bundled trees that ship with the repo. Merged in as defaults on load; a registered entry of
-# the same name wins, so `project_setup.py apex-core -d ...` can still override them.
+# the same name wins, so `project_setup.py apex-core --original ...` can still override them.
 BUILTIN = {
     "example": {
         "original": os.path.join(MODULE, "examples/demo/original"),
@@ -111,7 +110,7 @@ def resolve_trees(name, original=None, refactored=None):
         raise SystemExit(
             f"project '{name}' has no source trees.\n"
             f"  Pass them:     --original <origTree> --refactored <refTree>\n"
-            f"  Or register:   python3 scripts/project_setup.py {name} -d <projectDir> \\\n"
+            f"  Or register:   python3 scripts/project_setup.py {name} \\\n"
             f"                     --original <origTree> --refactored <refTree>\n"
             f"  Registered:    {known}")
     for label, tree in (("--original", orig), ("--refactored", ref)):

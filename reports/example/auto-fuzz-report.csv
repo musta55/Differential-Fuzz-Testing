@@ -1,5 +1,9 @@
-Method,Kind,Verdict,Reason,Inputs,Compared,Branch orig,Branch ref,Line orig,Line ref,Confidence,Why
-Grader.grade,scalar,EQUIVALENT,-,24375,24375,6/6,6/6,7/7,7/7,all 12 branches exercised,no divergence found in 15s of fuzzing
-Grader.passes,scalar,DIVERGENT,-,8,8,4/4,2/2,3/3,1/1,witnessed,"**exception type** — on `[-2212]` original throws IllegalArgumentException, refactored returns false"
-Grader.total,object,EQUIVALENT,-,23328,23328,3/4,3/4,6/6,6/7,6/8 branches (75%),no divergence found in 15s of fuzzing
-Simple.ctor,ctor,DIVERGENT,-,3,3,0/0,0/0,2/2,2/2,witnessed,"**exception type** — on `[]` original returns example.SimpleOriginal@484, refactored throws Error"
+Method,Signature,Kind,Verdict,Reason,Inputs,Compared,Branch orig,Branch ref,Line orig,Line ref,Confidence,Why
+Grader.grade,grade(int),scalar,EQUIVALENT,-,21076,21076,6/6,6/6,7/7,7/7,all 12 branches exercised,no divergence found in 15s of fuzzing
+Grader.passes,passes(int),scalar,DIVERGENT,-,10,10,4/4,2/2,3/3,1/1,witnessed,"**exception type** — on `[-39]` original throws IllegalArgumentException, refactored returns false"
+Grader.total,total(List<Integer>),object,EQUIVALENT,-,19146,19146,3/4,3/4,6/6,6/7,6/8 branches (75%),no divergence found in 15s of fuzzing
+Simple.ctor,<init>(),ctor,DIVERGENT,-,3,3,0/0,0/0,2/2,2/2,witnessed,"**exception type** — on `[]` original returns example.Simple@5dcb4f5f, refactored throws Error"
+Simple.foo,foo(java.lang.String),scalar,SKIP,never ran,273579,0,0/0,0/0,0/1,0/1,-,never built on both sides — refactored: neither autofuzz nor constructor synthesis built example.Simple (NOT equivalence)
+Simple.bar,bar(java.lang.Integer),scalar,SKIP,never ran,268798,0,0/0,0/0,0/1,0/1,-,never built on both sides — refactored: neither autofuzz nor constructor synthesis built example.Simple (NOT equivalence)
+Widget.combine,"combine(int, int)",scalar,EQUIVALENT,-,18559,18559,0/0,0/0,1/1,1/1,branchless (judge on Line),no divergence found in 15s of fuzzing
+Widget.half,half(java.lang.Integer),scalar,DIVERGENT,-,15,15,0/0,0/0,1/1,1/1,witnessed,"**return value** — on `[-1]` original returns 0, refactored returns -1"

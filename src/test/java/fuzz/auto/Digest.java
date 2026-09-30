@@ -179,6 +179,14 @@ final class Digest
       if (a instanceof Number || a instanceof Character || a instanceof Boolean) {
         return String.valueOf(a).equals(String.valueOf(b));
       }
+      // The two sides load project classes in different loaders, so an enum constant or a Class
+      // object is never equals() to its counterpart; compare what they name instead.
+      if (a instanceof Enum && b instanceof Enum) {
+        return ((Enum<?>) a).name().equals(((Enum<?>) b).name());
+      }
+      if (a instanceof Class && b instanceof Class) {
+        return ((Class<?>) a).getName().equals(((Class<?>) b).getName());
+      }
       return java.util.Objects.equals(a, b);
     } catch (Throwable t) {
       return true; // cannot tell; do not manufacture a divergence

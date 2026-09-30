@@ -31,6 +31,7 @@ def classpath(project):
         r = subprocess.run([os.path.join(MODULE, "mvnw"), f"-P{project}", "-q",
                             "dependency:build-classpath", f"-Dmdep.outputFile={cache}",
                             "-DincludeScope=test"], cwd=MODULE, capture_output=True, text=True)
+        # print(r.stdout, end="", flush=True)
         if not os.path.isfile(cache):
             sys.exit(f"could not resolve the {project} classpath:\n{r.stdout}\n{r.stderr}")
     return os.pathsep.join([os.path.join(MODULE, "target/test-classes"),
@@ -38,15 +39,11 @@ def classpath(project):
 
 
 def ensure_compiled(project):
-    """Compile this project's snapshots into target/test-classes before using them.
-
-    Not optional and not merely a convenience: maven-compiler-plugin wipes the whole output
-    directory when it notices the source roots changed, so building any OTHER profile deletes this
-    project's classes. EvoSuite then reports "Unknown class" for every target and produces an empty
-    run that looks like a tool failure (observed: 27/27 classes, 0 tests, 0 seconds each).
-    """
+    """Compile the engine (fuzz.auto.SeedWriter runs from target/test-classes) and copy the
+    manifest there, which SideLoader reads to find the compiled sides."""
     r = subprocess.run([os.path.join(MODULE, "mvnw"), f"-P{project}", "-q", "test-compile"],
                        cwd=MODULE, capture_output=True, text=True)
+    # print(r.stdout, end="", flush=True)
     if r.returncode != 0:
         sys.exit(f"test-compile failed for {project}:\n{r.stdout[-3000:]}\n{r.stderr[-2000:]}")
 
@@ -74,7 +71,7 @@ def main():
     ap.add_argument("project")
     ap.add_argument("--side", default="original", choices=("original", "refactored"))
     ap.add_argument("--source-seeds", action="store_true",
-                    help="mine seeds from the snapshot sources instead of using EvoSuite's; the "
+                    help="mine seeds from the project sources instead of using EvoSuite's; the "
                          "only way to seed a project EvoSuite cannot run on")
     args = ap.parse_args()
 
@@ -82,7 +79,7 @@ def main():
     base = os.path.join(MODULE, "target/evosuite", args.project)
 
     # EvoSuite cannot run against a project built past Java 8, and an unseeded fuzzer starts from
-    # nothing. Mining the snapshot source for constants is the JDK-independent fallback; it produces
+    # nothing. Mining the project source for constants is the JDK-independent fallback; it produces
     # the same seed-values.json, so nothing below changes.
     #
     # The fallback triggers only when gen_unittests.py RECORDED that it skipped, never merely
@@ -94,7 +91,7 @@ def main():
     skipped = generation_skipped(base)
     if args.source_seeds:
         source, script = "source-literals", "scripts/source_seeds.py"
-        print(f"mining seeds from the {args.project} snapshot sources (requested)")
+        print(f"mining seeds from the {args.project} sources (requested)")
     elif suites:
         source, script = "evosuite", "scripts/extract_seeds.py"
     elif skipped:
@@ -113,6 +110,7 @@ def main():
 
     r = subprocess.run([sys.executable, os.path.join(MODULE, script),
                         args.project, "--side", args.side], cwd=MODULE)
+    # print(r.stdout, end="", flush=True)
     if r.returncode != 0:
         return r.returncode
 
@@ -128,6 +126,7 @@ def main():
     # has, so staging can be copied verbatim onto src/test/resources at install time.
     r = subprocess.run(["java", "-cp", classpath(args.project), "fuzz.auto.SeedWriter",
                         args.project, values, staging], cwd=MODULE)
+    # print(r.stdout, end="", flush=True)
     if r.returncode != 0:
         return r.returncode
     n = sum(len(fs) for _, _, fs in os.walk(staging))

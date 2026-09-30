@@ -1,16 +1,13 @@
 package fuzz.auto;
 
-import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
 
 import com.code_intelligence.jazzer.api.Autofuzz;
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
@@ -30,9 +27,10 @@ import com.code_intelligence.jazzer.api.FuzzedDataProvider;
  *       {@code StreamGobbler(InputStream)} and {@code Slider(Unifier,int,int)} from SKIP.</li>
  *   <li><b>Concrete-subtype substitution</b> when tier 2 cannot help. Autofuzz finds no
  *       implementors of a <em>project</em> interface or abstract class (verified: it returns null
- *       for {@code MuxReservoir} and {@code SweepableReservoir}), so this scans the test classpath
- *       for a concrete subtype and asks autofuzz for that instead. This is what makes an
- *       abstract-receiver method testable at all.</li>
+ *       for {@code MuxReservoir} and {@code SweepableReservoir}), so this searches the type's own
+ *       side ({@link SideLoader}: the changed classes plus the whole fat jar) for a concrete
+ *       subtype and asks autofuzz for that instead. This is what makes an abstract-receiver method
+ *       testable at all.</li>
  * </ol>
  *
  * <p>Raw generic types must not be handed to autofuzz directly: asking it for {@code java.util.Map}
@@ -66,7 +64,6 @@ final class ObjectFactory
   /** Cache of abstract/interface type -> discovered concrete subtype (or absent if none). */
   private static final Map<Class<?>, Class<?>> SUBTYPE = new ConcurrentHashMap<>();
   private static final Class<?> NONE = Void.class; // cache sentinel: scanned, found nothing
-  private static volatile List<String> classpathNames;
 
   /** Thrown when no tier can produce a value of the requested type. */
   static final class Unbuildable extends RuntimeException
@@ -231,8 +228,15 @@ final class ObjectFactory
       return null;
     }
     java.lang.reflect.Constructor<?>[] ctors = t.getDeclaredConstructors();
-    java.util.Arrays.sort(ctors,
-        java.util.Comparator.comparingInt(java.lang.reflect.Constructor::getParameterCount));
+    // java.util.Arrays.sort(ctors,
+    //     java.util.Comparator.comparingInt(java.lang.reflect.Constructor::getParameterCount));
+    java.util.Arrays.sort(ctors, new java.util.Comparator<java.lang.reflect.Constructor<?>>() {
+      @Override
+        public int compare(java.lang.reflect.Constructor<?> a,
+                          java.lang.reflect.Constructor<?> b) {
+            return Integer.compare(a.getParameterCount(), b.getParameterCount());
+        }
+    });
     for (java.lang.reflect.Constructor<?> c : ctors) {
       if (Modifier.isPrivate(c.getModifiers())) {
         continue;
@@ -289,7 +293,12 @@ final class ObjectFactory
   private static Object tryConsume(FuzzedDataProvider data, Class<?> t)
   {
     try {
-      return Autofuzz.consume(data, t);
+      Object v = Autofuzz.consume(data, t);
+      // Autofuzz finds implementations of an abstract type with its own class-path scan, so for a
+      // project type it can return an object from the application class loader: same class name,
+      // but not an instance of this side's type. Invoking the method on it would throw
+      // IllegalArgumentException on both sides and pass for agreement, so treat it as "not built".
+      return t.isInstance(v) ? v : null;
     } catch (Throwable e) {
       // A raw parameterized type throws ClassCastException inside autofuzz, and a constructor it
       // picked can throw anything at all. Both mean "not this way", not "test failed".
@@ -300,13 +309,16 @@ final class ObjectFactory
   // ── concrete-subtype discovery ──────────────────────────────────────────────
 
   /**
-   * Find a concrete, instantiable subtype of an abstract class or interface by scanning the test
-   * classpath. Result is cached per type: the scan is expensive and there are only a handful of
-   * abstract receivers per project.
+   * Find a concrete, instantiable subtype of an abstract class or interface. Result is cached per
+   * type: the search is expensive and there are only a handful of abstract receivers per project.
    *
-   * <p>Candidates are ordered by simple-name length so the most specific-looking implementation
-   * loses to the plainest one, which in practice picks the project's straightforward
-   * implementation over test doubles and inner adapters.
+   * <p>Only a project type has project subtypes worth finding, and only its own side can supply
+   * them: a subtype loaded anywhere else would not be assignable to it. So the candidates are the
+   * classes that type's {@link SideLoader} can load, limited to the type's own root package (the
+   * first two segments, e.g. {@code com.datatorrent}) so that thousands of library classes in the
+   * fat jar are not loaded one by one. The order is deterministic and identical on both sides:
+   * same package first, then the shortest (plainest) name, which in practice picks the project's
+   * straightforward implementation over test doubles and inner adapters.
    */
   static Class<?> concreteSubtypeOf(Class<?> t)
   {
@@ -315,114 +327,76 @@ final class ObjectFactory
       return cached == NONE ? null : cached;
     }
     Class<?> found = null;
-    List<String> names = classpathClassNames();
-    List<String> ordered = new ArrayList<>(names);
-    Collections.sort(ordered, (a, b) -> Integer.compare(a.length(), b.length()));
-    for (String name : ordered) {
-      Class<?> c = loadQuietly(name);
-      if (c == null || c == t || c.isInterface() || Modifier.isAbstract(c.getModifiers())
-          || !t.isAssignableFrom(c) || c.isAnonymousClass() || c.isLocalClass()) {
-        continue;
+    if (t.getClassLoader() instanceof SideLoader) {
+      SideLoader side = (SideLoader) t.getClassLoader();
+      for (String name : candidates(t, side.classNames())) {
+        Class<?> c = loadQuietly(name, side);
+        if (c != null && isInstantiableSubtype(c, t)) {
+          found = c;
+          break;
+        }
       }
-      // A non-static inner class needs its enclosing instance; not worth the extra machinery.
-      if (c.getEnclosingClass() != null && !Modifier.isStatic(c.getModifiers())) {
-        continue;
-      }
-      if (c.getDeclaredConstructors().length == 0) {
-        continue;
-      }
-      found = c;
-      break;
     }
     SUBTYPE.put(t, found == null ? NONE : found);
     return found;
   }
 
-  private static Class<?> loadQuietly(String name)
+  /** Names in t's root package, same package first, then shortest, then alphabetical. */
+  private static List<String> candidates(Class<?> t, List<String> names)
+  {
+    final String pkg = packageOf(t.getName());
+    String[] parts = pkg.split("\\.");
+    String root = parts.length >= 2 ? parts[0] + "." + parts[1] + "." : pkg + ".";
+    List<String> out = new ArrayList<>();
+    for (String name : names) {
+      if (name.startsWith(root) && !name.equals(t.getName())) {
+        out.add(name);
+      }
+    }
+    Collections.sort(out, new Comparator<String>() {
+      @Override
+      public int compare(String a, String b) {
+        boolean aHere = packageOf(a).equals(pkg);
+        boolean bHere = packageOf(b).equals(pkg);
+        if (aHere != bHere) {
+          return aHere ? -1 : 1;
+        }
+        if (a.length() != b.length()) {
+          return Integer.compare(a.length(), b.length());
+        }
+        return a.compareTo(b);
+      }
+    });
+    return out;
+  }
+
+  private static String packageOf(String className)
+  {
+    int dot = className.lastIndexOf('.');
+    return dot < 0 ? "" : className.substring(0, dot);
+  }
+
+  private static boolean isInstantiableSubtype(Class<?> c, Class<?> t)
+  {
+    if (c.isInterface() || Modifier.isAbstract(c.getModifiers()) || !t.isAssignableFrom(c)
+        || c.isAnonymousClass() || c.isLocalClass()) {
+      return false;
+    }
+    // A non-static inner class needs its enclosing instance; not worth the extra machinery.
+    if (c.getEnclosingClass() != null && !Modifier.isStatic(c.getModifiers())) {
+      return false;
+    }
+    return c.getDeclaredConstructors().length > 0;
+  }
+
+  private static Class<?> loadQuietly(String name, ClassLoader loader)
   {
     try {
       // initialize=false: loading a random project class must not run its static initializer,
       // which can touch config files, spawn threads, or throw.
-      return Class.forName(name, false, ObjectFactory.class.getClassLoader());
+      return Class.forName(name, false, loader);
     } catch (Throwable e) {
       return null;
-    }
-  }
-
-  /**
-   * Class names on the test classpath, restricted to the entries that can plausibly hold the
-   * project's own classes: the compiled snapshots under target/test-classes and the project's own
-   * jars. Scanning every dependency jar (Hadoop, Guava, Kryo ...) would cost seconds and only add
-   * library types that autofuzz already handles.
-   */
-  private static List<String> classpathClassNames()
-  {
-    List<String> cached = classpathNames;
-    if (cached != null) {
-      return cached;
-    }
-    List<String> out = new ArrayList<>();
-    String cp = System.getProperty("java.class.path", "");
-    for (String entry : cp.split(java.io.File.pathSeparator)) {
-      if (entry.isEmpty()) {
-        continue;
-      }
-      File f = new File(entry);
-      if (f.isDirectory()) {
-        collectDir(f, "", out);
-      } else if (entry.endsWith(".jar") && isProjectJar(entry)) {
-        collectJar(f, out);
-      }
-    }
-    classpathNames = out;
-    return out;
-  }
-
-  /** Heuristic: the locally installed project artifacts, not third-party libraries. */
-  private static boolean isProjectJar(String path)
-  {
-    String p = path.replace('\\', '/');
-    return p.contains("/org/apache/apex/local/") || p.contains("/local/")
-        || p.contains("-local") || p.contains("-all");
-  }
-
-  private static void collectDir(File dir, String prefix, List<String> out)
-  {
-    File[] kids = dir.listFiles();
-    if (kids == null) {
-      return;
-    }
-    for (File k : kids) {
-      if (k.isDirectory()) {
-        collectDir(k, prefix + k.getName() + ".", out);
-      } else if (k.getName().endsWith(".class") && k.getName().indexOf('$') < 0) {
-        out.add(prefix + k.getName().substring(0, k.getName().length() - 6));
-      }
-    }
-  }
-
-  private static void collectJar(File jar, List<String> out)
-  {
-    JarFile jf = null;
-    try {
-      jf = new JarFile(jar);
-      java.util.Enumeration<JarEntry> en = jf.entries();
-      while (en.hasMoreElements()) {
-        String n = en.nextElement().getName();
-        if (n.endsWith(".class") && n.indexOf('$') < 0) {
-          out.add(n.substring(0, n.length() - 6).replace('/', '.'));
-        }
-      }
-    } catch (IOException e) {
-      // an unreadable jar just contributes nothing
-    } finally {
-      if (jf != null) {
-        try {
-          jf.close();
-        } catch (IOException ignored) {
-          // nothing useful to do
-        }
-      }
     }
   }
 

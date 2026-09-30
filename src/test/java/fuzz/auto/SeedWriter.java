@@ -158,7 +158,20 @@ public final class SeedWriter
       throws Exception
   {
     GenericDifferential.Spec s = GenericDifferential.spec(project, id);
-    Class<?> cls = Class.forName(s.original);
+    // Seeds exercise the original side, the reference the refactored one is compared against,
+    // and are recorded with that side as the context loader, exactly as the harness builds them.
+    Class<?> cls = SideLoader.of(project, SideLoader.ORIGINAL).load(s.original);
+    ClassLoader previous = SideLoader.useContextOf(cls);
+    try {
+      return record(s, cls, pool, skip);
+    } finally {
+      Thread.currentThread().setContextClassLoader(previous);
+    }
+  }
+
+  private static byte[] record(GenericDifferential.Spec s, Class<?> cls, List<Object> pool,
+      int skip) throws Exception
+  {
 
     if (s.isCtor) {
       Constructor<?> ctor = GenericDifferential.resolveCtor(cls, s);

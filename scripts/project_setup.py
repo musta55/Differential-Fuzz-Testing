@@ -2,10 +2,10 @@
 """
 Step 0 — make ANY project runnable by the pipeline, with no hand-editing of pom.xml.
 
-    python3 scripts/project_setup.py <name> -d <projectDir> \
-            [--original <origTree>] [--refactored <refTree>]
+    python3 scripts/project_setup.py <name> --original <origTree> [--refactored <refTree>] \
+            [-d <buildDir>]
 
-Given a checkout of the target project it:
+Given a checkout of the target project — -d if given, else the --original tree — it:
 
   1. Builds the project and shades every one of its jar modules — plus their transitive
      third-party dependencies — into one fat jar. Maven (`mvn install` + a synthetic shade
@@ -29,11 +29,11 @@ the file is edited as text precisely because an XML round-trip drops every comme
 
 Usage examples:
     # a Maven project, both trees registered in one go
-    python3 scripts/project_setup.py deltaspike -d projects/before/deltaspike \
+    python3 scripts/project_setup.py deltaspike \
         --original projects/before/deltaspike --refactored projects/after/deltaspike
 
     # reuse a fat jar built earlier (skips the project build entirely)
-    python3 scripts/project_setup.py deltaspike -d projects/before/deltaspike \
+    python3 scripts/project_setup.py deltaspike --original projects/before/deltaspike \
         --jar /path/to/deltaspike-differential-fuzz-testing.jar
 """
 
@@ -44,6 +44,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import time
 import xml.etree.ElementTree as XML
 import zipfile
 from collections import deque
@@ -53,7 +54,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import projects  # noqa: E402
 
 MODULE = Path(__file__).resolve().parent.parent
-GRADLE_JAR_INIT_SCRIPT_PATH = Path(__file__).resolve().parent / "differential-fuzz-testing-fatjar.gradle"
+GRADLE_JAR_INIT_SCRIPT_PATH = (
+    Path(__file__).resolve().parent / "differential-fuzz-testing-fatjar.gradle"
+)
 
 POM_NS = "http://maven.apache.org/POM/4.0.0"
 FATJAR_POM_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
@@ -116,7 +119,9 @@ DEPENDENCY_TEMPLATE = """        <dependency>
 BEGIN = "<!-- BEGIN GENERATED PROFILE: {name} (scripts/project_setup.py) -->"
 END = "<!-- END GENERATED PROFILE: {name} -->"
 GENERATED_BLOCK = re.compile(
-    r"[ \t]*<!-- BEGIN GENERATED PROFILE:.*?<!-- END GENERATED PROFILE:[^>]*-->\n?", re.S)
+    r"[ \t]*<!-- BEGIN GENERATED PROFILE:.*?<!-- END GENERATED PROFILE:[^>]*-->\n?",
+    re.S,
+)
 
 
 def handwritten_profile_ids(text: str) -> set[str]:
@@ -132,7 +137,7 @@ def handwritten_profile_ids(text: str) -> set[str]:
     try:
         root = XML.fromstring(GENERATED_BLOCK.sub("", text))
     except XML.ParseError:
-        return set()          # a pom Maven could not read either — let the splice proceed
+        return set()  # a pom Maven could not read either — let the splice proceed
     ids = set()
     for ns in (f"{{{POM_NS}}}", ""):
         for profile in root.findall(f"{ns}profiles/{ns}profile"):
@@ -144,49 +149,81 @@ def handwritten_profile_ids(text: str) -> set[str]:
 
 # ── running builds ─────────────────────────────────────────────────────────────────────
 
-def _tool(directory: Path, wrapper: str, fallback: str) -> list[str]:
-    """The project's build wrapper if it ships one, else the system tool.
 
-    Not every checkout has a wrapper — deltaspike has no mvnw — and the old code invoked
-    './mvnw' unconditionally, so those projects died on FileNotFoundError.
+def _tool(directory: Path, wrapper: str, fallback: str) -> list[str]:
     """
+    Returns the projects's shipped build wrapper (i.e mvnw script) if it ships one, else the system tool.
+    """
+    ## checks mvnw wrapper script is present in the project. If present no need to have mvn installed on the system.
     wrapper_path = directory / wrapper
+    
+    ## makes the script executable to current user --> same to execute "chmod +x mvnw"
     if wrapper_path.is_file():
         if not os.access(wrapper_path, os.X_OK):
             wrapper_path.chmod(wrapper_path.stat().st_mode | 0o111)
         return [str(wrapper_path)]
+    
+    ## if mvnw is not present, check if mvn is present in the system
     found = shutil.which(fallback)
+    
     if not found:
-        sys.exit(f"neither {directory / wrapper} nor a '{fallback}' on PATH — cannot build {directory}")
+        sys.exit(
+            f"Neither {directory / wrapper} nor a '{fallback}' on PATH. Hence cannot build {directory}!"
+        )
+    
+    ## this would retun mvn path in the system. e.g., /usr/bin/mvn in ubuntu 20.04
     return [found]
 
 
-def _run(argv: list[str], cwd: Path, what: str, capture: bool = False, tolerate: bool = False):
-    """Run a build step, and on failure print its tail instead of swallowing it.
-
-    The previous version sent stdout AND stderr to DEVNULL, so a failed project build
-    surfaced as a bare CalledProcessError with nothing to act on.
+def _run(argv: list[str], cwd: Path, what: str, capture: bool = True, tolerate: bool = False):
+    """
+    Run a build step.
+    Inputs:
+     - argv - list of command line arguments to run the build step e.g.,: /usr/bin/mvn -B --fail-at-end clean install -Dmaven.test.skip=true
+     - cwd - path of the original/path/project directory where the build step is to be run
+     - what - running instruction e.g.,: mvn clean install
+     - capture - flag to capture the execution output. If True, the function will return the output and return code of the build step. If False, it will return only the return code.
+     - tolerate - flag to tolerate build failures. If True, the function will not exit on build failures. This handles when multi module project fails some modules but still produces some jars.
     """
     print(f"  $ {' '.join(argv)}", flush=True)
-    r = subprocess.run(argv, cwd=cwd, text=True,
-                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    ## stdout=subprocess.PIPE - This will capture the output of the subprocess and store it in memory instead of printing in the console
+    ## stderr=subprocess.STDOUT - This will capture erros and redirect it to stdout and thus all logs and errors will be on the same log
+    r = subprocess.run(
+        argv, cwd=str(cwd), text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
+
+    ## DEBUG Purposes! Uncomment next line this to DEBUG Purposes: save the output to the log; this will print the output in the console.
+    ## print(r.stdout, end="", flush=True) 
+    
+    ## returncode == 0 --> successful execution of the build step.
     if r.returncode != 0 and not tolerate:
         tail = "\n".join((r.stdout or "").splitlines()[-40:])
-        sys.exit(f"\n{what} FAILED (exit {r.returncode}) in {cwd}\n"
-                 f"--- last 40 lines ---\n{tail}\n")
+        sys.exit(
+            f"\n{what} FAILED (exit {r.returncode}) in {cwd}\n"
+            f"--- last 40 lines ---\n{tail}\n"
+        )
+    
+    ## return the returncode and outout of the build step if capture = True
     return (r.stdout, r.returncode) if capture else r.returncode
 
 
-def compile_jar(build_file: Path | None, project_dir: Path, extra_args: list[str]) -> Path:
-    """Build the project's fat jar and return its path."""
+def compile_jar(build_file: Path, project_dir: Path, extra_args: list[str]) -> Path:
+    """
+    Build the project's fat jar and return its path.
+    """
+    ## use Javac
     if build_file is None:
         candidates = build_javac_jar(project_dir)
+    ## use maven
     elif build_file.name == "pom.xml":
-        candidates = build_maven_jar(build_file, extra_args)
+        candidates = build_maven_jar(build_file, project_dir, extra_args)
+    ## use gradle
     else:
         candidates = build_gradle_jar(build_file.parent, extra_args)
     if not candidates:
-        sys.exit(f"no fat jar found after building {project_dir}")
+        sys.exit(f"cannot build fat jar for {project_dir}")
+    
+    ## take the last modified jar file as the fat jar. (skipping the temporary .jar file created by the synthetic pom.xml file)
     return max(candidates, key=lambda p: p.stat().st_mtime)
 
 
@@ -209,66 +246,130 @@ def build_javac_jar(project_dir: Path) -> list[Path]:
 
 def build_gradle_jar(directory: Path, extra_args: list[str]) -> list[Path]:
     """Build the fat jar through the bundled init script's differentialFuzzTestingFatJar task."""
-    _run([*_tool(directory, "gradlew", "gradle"), "-I", str(GRADLE_JAR_INIT_SCRIPT_PATH),
-          "differentialFuzzTestingFatJar", *extra_args], directory, "gradle fat jar")
+    _run(
+        [
+            *_tool(directory, "gradlew", "gradle"),
+            "-I",
+            str(GRADLE_JAR_INIT_SCRIPT_PATH),
+            "differentialFuzzTestingFatJar",
+            *extra_args,
+        ],
+        directory,
+        "gradle fat jar",
+    )
     return list(directory.rglob("build/libs/*-differential-fuzz-testing.jar"))
 
 
-def build_maven_jar(pom_xml_path: Path, extra_args: list[str]) -> list[Path]:
-    """Install the reactor, then shade every jar module reachable from it into one fat jar.
-
-    A partial install is fine and is common on a large project: skywalking's apm-webapp
-    shells out to `npm ci`, which fails on a machine with no npm or no network, and it has
-    no Java the fuzzer wants. Only modules that actually produced a jar go into the fat jar,
-    so the build runs --fail-at-end and the rest of the reactor is still usable. Aborting
-    on the first bad module would make every such project unrunnable for the sake of one
-    module the fuzzer has no interest in.
+def build_maven_jar(pom_xml_path: Path, project_dir: Path, extra_args: list[str]) -> list[Path]:
     """
-    project_dir = pom_xml_path.parent
+    Build every sub module that can be built into a .jar file and compile them into one fat jar.
+    """
+    project_dir = project_dir.resolve()
+
+    ## get the project build tool path. Either /path/to/original/project/mvnw/script or /system/installed/mvn/path
     mvn = _tool(project_dir, "mvnw", "mvn")
-    # Checks that gate the project's own release build have nothing to say about a
-    # classpath jar, and several of them fail on a tree with refactorings applied.
-    skips = ["-Dmaven.test.skip=true", "-Drat.skip=true", "-Dcheckstyle.skip=true",
-             "-Dmaven.javadoc.skip=true", "-Denforcer.skip=true", "-Dlicense.skip=true",
-             "-Dspotless.check.skip=true", "-Danimal.sniffer.skip=true"]
-    out, rc = _run([*mvn, "-B", "--fail-at-end", "install", *skips, *extra_args],
-                   project_dir, "mvn install", capture=True, tolerate=True)
-    if rc != 0:
+
+    ## build only the source code not tests
+    skips = [
+        "-Dmaven.test.skip=true",
+        #   "-Drat.skip=true", "-Dcheckstyle.skip=true",
+        #  "-Dmaven.javadoc.skip=true", "-Denforcer.skip=true", "-Dlicense.skip=true",
+        #  "-Dspotless.check.skip=true", "-Danimal.sniffer.skip=true"
+    ]
+    
+    build_started = time.time()
+    out, return_code = _run(
+        ## -B --> --batch mode runs maven interactively. DO NOT remove this because it will not print maven color codes and having color codes will break later log read steps
+        ## --fail-at-end --> building every module that doesn't depend on the failed one and reports all failures at the end.
+        [*mvn, "-B", "--fail-at-end", "clean", "install", *skips, *extra_args],
+        project_dir,
+        "mvn clean install",
+        capture=True, ## if capture is True the function will return the maven build console log output + return code else just return code.
+        tolerate=False, ## if tolerate is True, the function will not exit on failure but will return the output and return code instead.
+    )
+    ### Important!!! DID NOT CHECK Error Scenario! (line 289 - 315)
+    bad = 0
+    if return_code != 0:
         bad = re.findall(r"(?m)^\[INFO\] (\S+) \.+ (?:FAILURE|SKIPPED)", out or "")
         if bad:
-            print(f"  ! {len(bad)} module(s) did not install: {', '.join(bad)}", file=sys.stderr)
+            print(
+                f"  ! {len(bad)} module(s) did not install: {', '.join(bad)}",
+                file=sys.stderr,
+            )
         else:
             # No reactor summary to blame — the failure was outside the per-module build, so
             # show it rather than claiming "0 modules failed" and printing nothing.
-            errs = [ln for ln in (out or "").splitlines() if ln.startswith("[ERROR]")][:12]
-            print(f"  ! the build exited {rc} with no module marked FAILURE:", file=sys.stderr)
-            print("\n".join("    " + e for e in errs) or "    (no [ERROR] lines)", file=sys.stderr)
-        print("    continuing with whatever modules produced a jar; use --build-args to change\n"
-              "    how the project is built (e.g. --build-args=\'-pl !apm-webapp\')", file=sys.stderr)
+            errs = [ln for ln in (out or "").splitlines() if ln.startswith("[ERROR]")][
+                :12
+            ]
+            print(
+                f"  ! the build exited {return_code} with no module marked FAILURE:",
+                file=sys.stderr,
+            )
+            print(
+                "\n".join("    " + e for e in errs) or "    (no [ERROR] lines)",
+                file=sys.stderr,
+            )
+        print(
+            "    continuing with whatever modules produced a jar; use --build-args to change\n"
+            "    how the project is built (e.g. --build-args='-pl !apm-webapp')",
+            file=sys.stderr,
+        )
 
-    gavs = _discover_jar_modules(pom_xml_path, project_dir, mvn)
+    gavs = _discover_jar_modules(pom_path=pom_xml_path, project_dir=project_dir, mvn=mvn, built_after=build_started)
     if not gavs:
-        sys.exit(f"no jar-packaged modules found under {pom_xml_path}"
-                 + ("\n  (every module failed to install — fix the build first)" if rc else ""))
-    print(f"  {len(gavs)} jar module(s) to shade")
+        sys.exit(
+            f"no jar-packaged modules found under {pom_xml_path}"
+            + (
+                "\n  (every module failed to install — fix the build first)"
+                if return_code
+                else ""
+            )
+        )
+    print(f"  {len(gavs)} jar module(s) to package to a single fat jar")
 
+    ## create a synthetic pom.xml file in the project directory to build the fat jar. 
+    ## The synthetic pom.xml file will include all the dependencies of the original project of all modules.
+    
     synthetic_pom = project_dir / "pom-differential-fuzz-testing.xml"
     synthetic_pom.write_text(
-        FATJAR_POM_TEMPLATE.format(dependencies="\n".join(
-            DEPENDENCY_TEMPLATE.format(group_id=g, artifact_id=a, version=v) for g, a, v in gavs)),
-        encoding="utf-8")
-    _run([*mvn, "-B", "-f", synthetic_pom.name, "package", "-Dmaven.test.skip=true"],
-         project_dir, "mvn shade")
+        FATJAR_POM_TEMPLATE.format(
+            dependencies="\n".join(
+                DEPENDENCY_TEMPLATE.format(group_id=g, artifact_id=a, version=v)
+                for g, a, v in gavs
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    ## executes mvn package command to build the fat jar using the synthetic pom.xml file. 
+    ## This will first build syntetic project's own jar and then runs "mvn shade".
+    ## maven-shade plugin now pack all the modules together into one fat jar with all the dependencies. 
+    _run(
+        [*mvn, "-B", "-f", synthetic_pom.name, "package", "-Dmaven.test.skip=true"],
+        project_dir,
+        "mvn package (shade fat jar)",
+    )
+
+    ## from the above executed "mvn package" command it first build a temporary jar file for the synthetic project and then runs "mvn shade" to build the fat jar.
+    ## hence there are two .jar files in the target/ directory. One is almost empty temporary .jar file and other is the actual fat jar.
     return list(project_dir.rglob("target/*-differential-fuzz-testing.jar"))
 
 
 # ── reading the project's Maven metadata ───────────────────────────────────────────────
 
+
 def _strip_ns(tag: str) -> str:
+    """
+    Removed the namespace url from the tag name. e.g., {http://maven.apache.org/POM/4.0.0}project --> project
+    """
     return tag.split("}", 1)[-1] if "}" in tag else tag
 
 
 def _child(elem: XML.Element, name: str) -> XML.Element | None:
+    """
+    returns the child element with the given name, or None if not found.
+    """
     for child in elem:
         if _strip_ns(child.tag) == name:
             return child
@@ -276,48 +377,126 @@ def _child(elem: XML.Element, name: str) -> XML.Element | None:
 
 
 def _child_text(elem: XML.Element, name: str) -> str | None:
+    """
+    returns the text of the child element with the given name, or None if not found.
+    """
     child = _child(elem, name)
     return child.text if child is not None else None
 
 
-def _discover_jar_modules(pom_path: Path, project_dir: Path, mvn: list[str]):
-    """(groupId, artifactId, version) for every jar module in the reactor.
-
-    ONE `help:effective-pom` for the whole reactor: an aggregator prints a <projects>
-    wrapper holding every module's fully-resolved pom, parent inheritance and property
-    substitution already applied by Maven. The previous implementation walked <module>
-    entries itself and spawned a Maven JVM per module, which on deltaspike's 40 modules
-    meant 40 sequential builds just to read four fields each.
+def _discover_jar_modules(pom_path: Path, project_dir: Path, mvn: list[str], built_after: float):
     """
-    out, _ = _run([*mvn, "-B", "-q", "help:effective-pom", "-f", str(pom_path.resolve()),
-                   "-Doutput=/dev/stdout"], project_dir, "mvn help:effective-pom", capture=True)
+    We need X = (groupId, artifactId, version) for every jar module in the original project.
+    
+    How to get X? using an effective-pom. Each sub module in the project pom does not include groupdId or vesion of its own. Effective-pom gives those information we need to build the finla fat jar
+
+    In technical words effective-pom is an aggregator prints a <projects>
+    wrapper holding every module's fully-resolved pom, parent inheritance and property
+    substitution already applied by Maven.
+
+    - pom_path - path/to/original/project/pom.xml
+    - project_dir - path/to/original/project/source/code
+    - build_after - build step started time in milliseconds
+    """
+    ### Has a limitation: Warning are also append to the stdout. Remedy: save the stdout to file and read from there.
+    out, _ = _run(
+        argv = [
+            *mvn,
+            "-B",
+            "-q", ## quiet mode. Suppresses [INFO] log lines. Why? Need to understand
+            "help:effective-pom", ## effective-pom is the super pom which contains parent POMS, settings.xml and buils automatically by maven plugin
+            "-f", str(pom_path.resolve()),
+            "-Doutput=/dev/stdout", ## write the XML to memory 
+        ],
+        cwd = project_dir,
+        what = "mvn help:effective-pom",
+        capture=True,
+    )
     start = out.index("<")
-    # -q still lets plugin banners through on some Maven versions; keep only the XML document.
     root = XML.fromstring(out[start:])
-    elems = [root] if _strip_ns(root.tag) == "project" else \
-        [c for c in root if _strip_ns(c.tag) == "project"]
+    
+    ## builds a list of the <project> elements (one per each module) in the effective pom
+    ## output format 
+    ## <Projects>
+    ##      <project>
+    ##          <groupId>xx</groupId>
+    ##          <artifactId>yy</artifactId>
+    ##          <version>zz</version>
+    ##          ...
+    ##      <project> 
+    ##      ...    
+    ## </Projects>
+    elems = (
+        [root]
+        if _strip_ns(root.tag) == "project"
+        else [c for c in root if _strip_ns(c.tag) == "project"]
+    )
     gavs, seen, missing = [], set(), []
     for e in elems:
-        g, a, v = (_child_text(e, "groupId"), _child_text(e, "artifactId"), _child_text(e, "version"))
-        if (_child_text(e, "packaging") or "jar") != "jar" or not (g and a and v) or (g, a) in seen:
+        ## extracts and assign groupId, artifactId, version from each project item 
+        g, a, v = (
+            _child_text(e, "groupId"),
+            _child_text(e, "artifactId"),
+            _child_text(e, "version"),
+        )
+
+        ## skips the module if it is not a jar module or if it is already seen (duplicate) or if any of the groupId, artifactId, version is missing
+        ## if the packaging is maven-archetype, then they will be skipped because those will not include any .class files. No help to fuzzer.
+        ## modules packaged as jar usually do not have <packaging> tag even in the effective pom
+        if (
+            (_child_text(e, "packaging") or "jar") != "jar"
+            or not (g and a and v)
+            or (g, a) in seen):
             continue
+
+        ## seen contains elements such as ((org.apache.apex, apex), ...)
         seen.add((g, a))
-        # Only modules that actually produced a jar. A module the reactor could not build is
-        # not resolvable, and listing it would make the shade step fail on a dependency the
-        # fuzzer never needed — which is how one npm-driven module used to sink a whole project.
+
+        # The jar is named by <build><finalName>, which is only <artifactId>-<version> by default:
         build = _child(e, "build")
+        
+        ## outdir is the target directory where the .jar is built for each module. e.g.,: /path/to/original_project/module/target
         outdir = _child_text(build, "directory") if build is not None else None
-        if outdir and not (Path(outdir) / f"{a}-{v}.jar").is_file():
-            missing.append(a)
+        
+        ## <finalName> --> which is only <artifactId>-<version> by default
+        final_name = (
+            _child_text(build, "finalName") if build is not None else None
+        ) or f"{a}-{v}"
+        jar = Path(outdir) / f"{final_name}.jar" if outdir else None
+
+        ## Keep a module only if THIS build wrote its jar. jar.stat().st_mtime is the jar's last-modified
+        ## time, compared with built_after (the time.time() taken just before `mvn clean install` started).
+        ##
+        ## 1. No jar at all -> skipped, reported as "<artifactId>".
+        ##    e.g., bufferserver failed to compile: `clean` deleted its old jar in bufferserver/target/
+        ##    and nothing rebuilt it.
+        ## 2. Jar exists but is older than built_after -> skipped, reported as "<artifactId> (...earlier build)".
+        ##    e.g., bufferserver failed, so --fail-at-end SKIPPED engine, which depends on it. A skipped
+        ##    module runs no phases, not even `clean`, so yesterday's engine/target/apex-engine.jar is still there.
+        ##    The same happens to a module left out with --build-args='-pl !<module>'.
+        ## 3. Jar exists and is newer than built_after -> kept (added to gavs).
+        ##    e.g., api built fine: `clean` deleted its old jar and `install` wrote a new one.
+        ##
+        ## jar is None only when the effective POM has no <build><directory>; the module is then kept unchecked.
+        if jar and not (jar.is_file() and jar.stat().st_mtime >= built_after):
+            missing.append(
+                f"{a} (Using a jar from an earlier build)" if jar.is_file() else a
+            )
             continue
         gavs.append((g, a, v))
+    
     if missing:
-        print(f"  skipping {len(missing)} module(s) with no built jar: {', '.join(sorted(missing))}")
+        print(
+            f"  skipping {len(missing)} module(s) with no built jar: {', '.join(sorted(missing))}"
+        )
     return gavs
 
 
 def _find_build_system_file(base_dir: Path) -> Path | None:
-    """Breadth-first search for pom.xml / build.gradle(.kts); None if the project has neither."""
+    """
+    Breadth-first search for pom.xml / build.gradle / build.gradle.kts; 
+    None if the project has neither.
+    """
     queue = deque([base_dir])
     ignored = {".git", "target", "build", ".gradle", "node_modules"}
     while queue:
@@ -331,17 +510,12 @@ def _find_build_system_file(base_dir: Path) -> Path | None:
 
 # ── which JDK the snapshots have to be compiled with ───────────────────────────────────
 
+
 def jar_java_release(jar_path: Path) -> str | None:
-    """The highest JDK feature release any class in the jar was compiled for.
+    """
+    The highest JDK feature release any class in the jar was compiled for.
 
-    Read from the class-file major version (52 -> 8, 55 -> 11, 61 -> 17 ...), not from the
-    build file: this is what the snapshots actually have to link against, and the maximum
-    over the whole classpath is precisely what decides whether the current javac can read it.
-
-    Every entry is checked, not a sample. jmeter's fat jar is the reason: 46,470 classes, of
-    which exactly SIX are newer than Java 8 — six Jetty ALPN classes at Java 9. Any sampling
-    scheme is a coin flip on those, and a full scan of a 117 MB jar costs under two seconds
-    in a step that already spent minutes building the project.
+    Read from the class-file major version (52 -> 8, 55 -> 11, 61 -> 17 ...)
     """
     best = 0
     with zipfile.ZipFile(jar_path) as z:
@@ -369,6 +543,7 @@ def current_java_release() -> int:
 
 
 # ── writing the profile into pom.xml ───────────────────────────────────────────────────
+
 
 def link_jar(jar_path: Path, name: str) -> str:
     """Symlink the fat jar to a stable path inside the repo, and return it repo-relative.
@@ -414,7 +589,6 @@ def _profile_xml(jar_rel: str, name: str, java: str) -> str:
             <phase>generate-test-sources</phase>
             <goals><goal>add-test-source</goal></goals>
             <configuration><sources>
-              <source>src/test/Dataset/{name}</source>
               <source>src/test/fuzzing/{name}</source>
             </sources></configuration>
           </execution></executions>
@@ -424,14 +598,13 @@ def _profile_xml(jar_rel: str, name: str, java: str) -> str:
 
 
 def write_profile(jar_rel: str, name: str, java: str) -> None:
-    """Splice the profile into pom.xml between its markers, as text.
+    """
+    Splice the profile into pom.xml between its markers, as text.
 
-    Deliberately NOT an XML round-trip: xml.etree drops comments, and one run of the previous
-    version stripped all 25 explanatory comments out of this repo's pom.xml (9.6 KB -> 7.1 KB).
-
-    Both edits touch only whitespace that belongs to the markers themselves — the indentation
-    in front of BEGIN and the newline after END. An earlier attempt trimmed back to the
-    previous line break instead, which silently deleted the </profile> above the block.
+    It tells Maven three things for the project: 
+    1. fat jar's classpath 
+    2. compile at the project's Java level 
+    3. and include this project's harness and dataset folders as test code.
     """
     pom = MODULE / "pom.xml"
     text = pom.read_text(encoding="utf-8")
@@ -454,13 +627,16 @@ def write_profile(jar_rel: str, name: str, java: str) -> None:
                 f"  Delete that <profile>...</profile> block by hand, or register this project\n"
                 f"  under a different name.\n"
                 f"  The fat jar is already built and linked, so skip the rebuild on the retry:\n"
-                f"    python3 scripts/project_setup.py {name} --jar {MODULE / jar_rel}")
+                f"    python3 scripts/project_setup.py {name} --jar {MODULE / jar_rel}"
+            )
         if "</profiles>" in text:
             m = re.search(r"(?m)^([ \t]*)</profiles>", text)
             close = (m.group(1) if m else "  ") + "</profiles>"
             text = text.replace(close, block + close, 1)
         else:
-            text = text.replace("</project>", f"  <profiles>\n{block}  </profiles>\n</project>", 1)
+            text = text.replace(
+                "</project>", f"  <profiles>\n{block}  </profiles>\n</project>", 1
+            )
         action = "added"
     # Atomic: a half-written pom.xml breaks every Maven invocation in the repo, and a run in
     # another terminal reads this file once per fuzzed method.
@@ -492,69 +668,95 @@ def remove_profile(name: str) -> bool:
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("project", help="name for this project: the pom profile id and registry key")
-    ap.add_argument("-d", "--directory", help="a checkout of the target project, to build for the classpath")
-    ap.add_argument("--jar", help="use this already-built fat jar instead of building one")
-    ap.add_argument("--original", help="original source tree, recorded in projects.json")
-    ap.add_argument("--refactored", help="refactored source tree, recorded in projects.json")
-    ap.add_argument("--java", help="override the detected JDK release for the profile (e.g. 11)")
-    ap.add_argument("--build-args", metavar="ARGS",
-                    help="extra arguments for the project's own build, e.g. --build-args='-pl !apm-webapp'")
-    ap.add_argument("--remove", action="store_true",
-                    help="unregister: delete this project's generated profile from pom.xml and its "
-                         "projects.json entry. The built jar is left on disk.")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument("project", help="name for this project")
+    ap.add_argument(
+        "--original", help="/path/to/original/project"
+    )
+    ap.add_argument(
+        "--refactored", help="/path/to/refactored/project"
+    )
+    ap.add_argument(
+        "--java", help="override the detected JDK release for the profile (e.g. 11)"
+    )
+    ap.add_argument(
+        "--build-args",
+        metavar="ARGS",
+        help="extra arguments for the project's own build, e.g. --build-args='-pl !apm-webapp'",
+    )
+    ap.add_argument(
+        "--remove",
+        action="store_true",
+        help="unregister: delete this project's generated profile from pom.xml and its "
+        "projects.json entry. The built jar is left on disk.",
+    )
     args = ap.parse_args()
 
     if args.remove:
         gone = remove_profile(args.project)
         dropped = projects.drop(args.project)
-        print(f"{args.project}: profile {'removed from' if gone else 'not found in'} pom.xml, "
-              f"registry entry {'dropped' if dropped else 'not found'}")
+        print(
+            f"{args.project}: profile {'removed from' if gone else 'not found in'} pom.xml, "
+            f"registry entry {'dropped' if dropped else 'not found'}"
+        )
         return
 
-    if not args.directory and not args.jar:
-        ap.error("one of -d/--directory or --jar is required")
+    build_dir = args.original
+    # if not build_dir:
+    #     ap.error("--original is required")
 
-    if args.jar:
-        jar = Path(args.jar).resolve()
-        if not jar.is_file():
-            sys.exit(f"--jar not found: {jar}")
-        print(f"Using existing fat jar: {jar}")
-    else:
-        project_dir = Path(args.directory).resolve()
-        if not project_dir.is_dir():
-            sys.exit(f"-d/--directory not found: {project_dir}")
-        build_file = _find_build_system_file(project_dir)
-        kind = build_file.name if build_file else "javac (no build file)"
-        print(f"Building {args.project} from {project_dir}  [{kind}]")
-        jar = compile_jar(build_file, build_file.parent if build_file else project_dir,
-                          shlex.split(args.build_args or "")).resolve()
-        print(f"  fat jar: {jar}  ({jar.stat().st_size / 1e6:.0f} MB)")
+    project_dir = Path(build_dir).resolve()
+    if not project_dir.is_dir():
+        sys.exit(f"{project_dir} not found or not a directory")
+    build_file = _find_build_system_file(project_dir)
+    kind = build_file.name if build_file else "No pom.xml|build.gradle|build.gradle.kts found"
+    print(f"Building {args.project} from {project_dir}  [{kind}]")
+    jar = compile_jar(
+        build_file = build_file,
+        project_dir = project_dir ,
+        extra_args = shlex.split(args.build_args or ""), ## eg: shlex.split('-Dfoo="a b" -q')  --> ['-Dfoo=a b', '-q']
+    ).resolve()
+    print(f"  fat jar: {jar}  ({jar.stat().st_size / 1e6:.0f} MB)")
 
-    java = args.java or jar_java_release(jar) or "8"
-    have = current_java_release()
-    if have and int(java) > have:
-        print(f"\n  ! this project is Java {java} but `javac` here is {have}.\n"
-              f"    Set JAVA_HOME to a JDK {java}+ before running the pipeline, e.g.\n"
-              f"      export JAVA_HOME=/usr/lib/jvm/java-{java}-openjdk-amd64\n", file=sys.stderr)
+    project_javac_version = args.java or jar_java_release(jar) or "8" ## project jar's java version
+    system_javac_version = current_java_release() ## system's javac version
+    
+    if system_javac_version and (int(project_javac_version) > system_javac_version):
+        print(
+            f"\n  ! this project is Java {project_javac_version} but `javac` here is {system_javac_version}.\n"
+            f"    Set JAVA_HOME to a JDK {project_javac_version}+ before running the pipeline, e.g.\n",
+            file=sys.stderr,
+        )
 
+    ## create symlink to fat jar in MODULE/tools/fatjars/<project>.jar and return the relative path to the symlink
     jar_rel = link_jar(jar, args.project)
     print(f"  linked  {jar_rel} -> {jar}")
-    write_profile(jar_rel, args.project, java)
 
-    entry = projects.put(args.project, jar=str(MODULE / jar_rel), jarSource=str(jar), java=java,
-                         projectDir=str(Path(args.directory).resolve()) if args.directory else None,
-                         original=str(Path(args.original).resolve()) if args.original else None,
-                         refactored=str(Path(args.refactored).resolve()) if args.refactored else None)
+    ## writes a maven profile into the fuzzer module's own pom.xml.
+    write_profile(jar_rel, args.project, project_javac_version)
+
+    ## writes project meta data in MODULE/projects.json
+    entry = projects.put(
+        args.project,
+        jar=str(MODULE / jar_rel),
+        jarSource=str(jar),
+        java=project_javac_version,
+        original=str(Path(args.original).resolve()) if args.original else None,
+        refactored=str(Path(args.refactored).resolve()) if args.refactored else None,
+    )
     print(f"  registered in {os.path.relpath(projects.REGISTRY, MODULE)}")
-    if entry.get("original") and entry.get("refactored"):
-        print(f"\nReady. Run it with:\n  scripts/run_tmux.sh {args.project} --max 5      # smoke test\n"
-              f"  scripts/run_tmux.sh {args.project}               # full run")
-    else:
-        print(f"\nProfile written. Supply the two trees when you run:\n"
-              f"  scripts/run_tmux.sh {args.project} --original <o> --refactored <r>")
+    # if entry.get("original") and entry.get("refactored"):
+    #     print(
+    #         f"\nReady. Run it with:\n  scripts/run_tmux.sh {args.project} --max 5      # smoke test\n"
+    #         f"  scripts/run_tmux.sh {args.project}               # full run"
+    #     )
+    # else:
+    #     print(
+    #         f"\nProfile written. Supply the two trees when you run:\n"
+    #         f"  scripts/run_tmux.sh {args.project} --original <o> --refactored <r>"
+    #     )
 
 
 if __name__ == "__main__":

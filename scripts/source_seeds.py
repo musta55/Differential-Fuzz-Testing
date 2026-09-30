@@ -7,7 +7,7 @@ Mine fuzzer seeds from the project's own source, for projects EvoSuite cannot re
 EvoSuite 1.2.0 runs only on a Java 8 JVM, so a project compiled for a newer release gets no
 generated suites at all and therefore no seed corpus (openmeetings: class-file 61, 0 seeds, and the
 fuzzer then spends its whole budget rediscovering constants that are written down in the code).
-This script is the fallback: it reads the constants out of the snapshot source directly, so it
+This script is the fallback: it reads the constants out of the project source directly, so it
 works on any JDK and needs nothing compiled.
 
 It writes the SAME file, in the same shape, that scripts/extract_seeds.py writes:
@@ -107,10 +107,9 @@ def class_level(src, bodies_spans):
     return "".join(keep)
 
 
-def source_path(project, entry, side):
-    """The snapshot the fuzzer actually targets, e.g. .../<pkg>/<Class>Original.java."""
-    return os.path.join(MODULE, "src/test/Dataset", project,
-                        entry[side].replace(".", "/") + ".java")
+def source_path(manifest, entry, side):
+    """The source file of the class the fuzzer targets, in that side's tree."""
+    return os.path.join(manifest["source"][side], entry["source"][side])
 
 
 def main():
@@ -132,7 +131,7 @@ def main():
     seeds = {}
     stats = {"classes": 0, "missing": 0, "methods": 0, "cases": 0}
     for fqn, entries in by_class.items():
-        path = source_path(args.project, entries[0], args.side)
+        path = source_path(man, entries[0], args.side)
         if not os.path.isfile(path):
             stats["missing"] += 1
             continue
@@ -147,8 +146,7 @@ def main():
                 spans.append((at, at + len(body)))
         shared = typed_literals(class_level(src, sorted(spans)))
 
-        # The snapshot class is <Class>Original / <Class>Refactored, but its constructors are
-        # declared under that same suffixed name, so a ctor entry looks for the simple class name.
+        # A constructor is declared under the class's simple name, so a ctor entry looks for that.
         simple = fqn.rsplit(".", 1)[-1]
         for e in entries:
             want = simple if e["method"] == "<init>" else e["method"]
@@ -172,7 +170,7 @@ def main():
     print(f"mined {stats['cases']} constant pools for {stats['methods']} methods from "
           f"{stats['classes']} source files -> {os.path.relpath(out, MODULE)}")
     if stats["missing"]:
-        print(f"  {stats['missing']} class(es) had no snapshot source on disk")
+        print(f"  {stats['missing']} class(es) had no source file on disk")
     return 0
 
 

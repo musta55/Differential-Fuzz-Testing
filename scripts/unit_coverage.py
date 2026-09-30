@@ -4,7 +4,7 @@ Measure what the EvoSuite unit suites actually cover, per method, under JaCoCo.
 
     unit_coverage.py <project> [--side original]
 
-Compiles target/evosuite/<project>/evosuite-tests/**_ESTest.java against the compiled snapshots,
+Compiles target/evosuite/<project>/evosuite-tests/**_ESTest.java against one compiled side,
 runs them with JUnit 4 under the JaCoCo agent, and reports per-method branch/line coverage for
 every method in the manifest -> target/evosuite/<project>/unit-coverage.json.
 
@@ -62,21 +62,20 @@ def build_covtool():
                    capture_output=True)
 
 
-def project_classpath(project):
+def project_classpath(project, classes_dir):
     cache = os.path.join(MODULE, "target", f"cp-{project}.txt")
     if not os.path.isfile(cache):
         subprocess.run([os.path.join(MODULE, "mvnw"), f"-P{project}", "-q",
                         "dependency:build-classpath", f"-Dmdep.outputFile={cache}",
                         "-DincludeScope=test"], cwd=MODULE, capture_output=True)
     deps = open(cache).read().strip() if os.path.isfile(cache) else ""
-    classes = os.path.join(MODULE, "target/test-classes")
-    return f"{classes}{os.pathsep}{deps}" if deps else classes
+    return f"{classes_dir}{os.pathsep}{deps}" if deps else classes_dir
 
 
-def per_method(exec_file, class_filter, method):
+def per_method(exec_file, classes_dir, class_filter, method, params):
     cp = cov_classpath()
     p = subprocess.run(["java", "-cp", cp, "CovReport", exec_file,
-                        os.path.join(MODULE, "target/test-classes"), class_filter, method],
+                        classes_dir, class_filter, method, ";".join(params)],
                        capture_output=True, text=True)
     line = p.stdout.strip().splitlines()[0] if p.stdout.strip() else ""
     b = re.search(r"branch=(\d+/\d+)", line)
@@ -99,18 +98,12 @@ def evosuite_stats(base):
     return out
 
 
-def ensure_compiled(project):
-    """Compile this project's snapshots into target/test-classes before using them.
-
-    Not optional and not merely a convenience: maven-compiler-plugin wipes the whole output
-    directory when it notices the source roots changed, so building any OTHER profile deletes this
-    project's classes. EvoSuite then reports "Unknown class" for every target and produces an empty
-    run that looks like a tool failure (observed: 27/27 classes, 0 tests, 0 seconds each).
-    """
-    r = subprocess.run([os.path.join(MODULE, "mvnw"), f"-P{project}", "-q", "test-compile"],
-                       cwd=MODULE, capture_output=True, text=True)
-    if r.returncode != 0:
-        sys.exit(f"test-compile failed for {project}:\n{r.stdout[-3000:]}\n{r.stderr[-2000:]}")
+def side_classes(project, side):
+    """Where scripts/compile_sides.py put this side's classes; exits if it has not run."""
+    man = json.load(open(os.path.join(MODULE, "src/test/resources", project, "manifest.json")))
+    if "sides" not in man:
+        sys.exit(f"no compiled sides for {project} — run scripts/compile_sides.py first")
+    return man["sides"][side]
 
 
 def main():
@@ -131,7 +124,7 @@ def main():
         if not os.path.isfile(jar):
             sys.exit(f"missing {what}: {jar}")
 
-    ensure_compiled(args.project)
+    classes_dir = side_classes(args.project, args.side)
     build_covtool()
     sources = sorted(glob.glob(os.path.join(tests_dir, "**/*_ESTest*.java"), recursive=True))
     if not sources:
@@ -139,7 +132,7 @@ def main():
 
     classes_out = os.path.join(base, "test-classes")
     os.makedirs(classes_out, exist_ok=True)
-    cp = project_classpath(args.project)
+    cp = project_classpath(args.project, classes_dir)
     compile_cp = os.pathsep.join([cp, EVO_RUNTIME, JUNIT4, HAMCREST])
 
     # One javac per suite. Compiling them together lets a single bad file abort the batch: EvoSuite
@@ -210,7 +203,8 @@ def main():
     rows = []
     for e in man["methods"]:
         simple = e[args.side].split(".")[-1]
-        branch, line = per_method(exec_file, simple, e["method"])
+        branch, line = per_method(exec_file, classes_dir, simple, e["method"],
+                                  e.get("params", []))
         row = {"id": e["id"], "class": e[args.side], "method": e["method"],
                "branch": branch, "line": line}
         st = stats.get(e[args.side])

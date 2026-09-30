@@ -38,10 +38,32 @@ recursive constructor synthesis. Methods taking domain objects are therefore **i
 apex-core that is the difference between 83 and 159 testable methods, since a scalar-only filter
 discarded exactly half the changed methods before fuzzing began.
 
-What still cannot be reached: a method whose **receiver** is an abstract class or interface. The
-snapshots are renamed copies (`Foo` → `FooOriginal`), which severs them from their own subclass
-hierarchy, so no concrete subtype of the snapshot exists to instantiate. Those are reported SKIP
-with that reason.
+A method whose **receiver** is an abstract class or interface is reached through a concrete
+subtype from the project itself: each side is the whole project (its changed classes in front of
+the fat jar) loaded under the real class names, so the project's own subclasses are subclasses of
+that side's version. It is SKIP only when the project has no concrete subtype at all.
+
+## How the two versions are kept apart
+
+Nothing is renamed. `scripts/compile_sides.py` compiles the original and the refactored version of
+every changed file, under their real names, into `target/sides/<project>/{original,refactored}/`,
+and the engine loads each side in its own classloader (`SideLoader`): that side's classes first,
+then the fat jar. So when an unchanged class of the project calls back into a changed one, it
+reaches the version of the side it is running on, and nested types, generic bounds and subclasses
+keep their identity. Only the JDK, the engine, Jazzer and JUnit are shared between the sides.
+
+The compile step is also the check that the refactoring compiles at all:
+
+| Gate | Compiles | Against | Failure means |
+|---|---|---|---|
+| 1 | the original version of each changed file | the fat jar | `ENVIRONMENT` — a classpath/JDK problem, not the refactoring |
+| 2 | **all** changed and new refactored files, together | the fat jar | `REFACTORING_BROKEN` — the refactoring does not compile |
+
+Compiling all refactored files together lets a refactoring that spans files (a new signature and
+its updated callers, a new helper class) compile as it does in the refactored project. Each changed
+file's result is written to `reports/<project>/compile_status.csv`, and only methods whose file
+passed both gates are fuzzed. A changed `pom.xml`/`build.gradle` prints a warning, because the
+original fat jar does not reflect build changes such as new dependencies.
 
 ## Quick start (self-contained demo)
 
@@ -70,7 +92,6 @@ Maven profile and records it; after that the pipeline knows it by name.
 # 0. Once per project: build it, shade its modules and their dependencies into one jar,
 #    write the -P<name> profile into pom.xml, record both trees in projects.json.
 python3 scripts/project_setup.py deltaspike \
-    -d           /path/to/RefAgent-reproduce/projects/before/deltaspike \
     --original   /path/to/RefAgent-reproduce/projects/before/deltaspike \
     --refactored /path/to/RefAgent-reproduce/projects/after/deltaspike
 
@@ -81,9 +102,10 @@ scripts/run_tmux.sh deltaspike --max 5 --duration 15s --unit-budget 20
 scripts/run_tmux.sh deltaspike
 ```
 
-`-d` is any checkout of the project, and it only supplies the **classpath** — the classes the
-snapshots reference. `--original` / `--refactored` are the two trees actually diffed and fuzzed.
-They are usually the same before/after pair, and `-d` normally points at the original.
+`--original` / `--refactored` are the two trees actually diffed and fuzzed, and `--original` is
+also what gets built for the **classpath** — the classes the snapshots reference. Pass `-d <dir>`
+only when the original tree is not itself buildable (see apex-core below); it then supplies the
+classpath instead.
 
 **What step 0 does.** It runs the project's own build (`mvnw`/`mvn`, `gradlew`/`gradle`, or plain
 `javac` when there is no build file), collects every jar module in the reactor and shades them plus
@@ -118,7 +140,7 @@ modules that produced no jar are dropped from the shade with a line saying which
 continues. Use `--build-args` to steer the project's own build
 (`--build-args='-pl !apm-webapp'`), and `--jar` to reuse a fat jar you already have.
 
-**JDK.** The profile compiles the snapshots at the release step 0 read out of the built jar's
+**JDK.** Both sides are compiled at the release step 0 read out of the built jar's
 class-file version, so a Java 11 project gets `maven.compiler.source=11` with no editing. You still
 have to *run* on a JDK at least that new; `run_tmux.sh` checks this before deleting anything and
 prints the `export JAVA_HOME=…` line if it does not hold. EvoSuite 1.2.0 separately needs a Java 8
@@ -130,17 +152,17 @@ export JAVA8_HOME=/usr/lib/jvm/java-8-openjdk-amd64   # EvoSuite needs 8, whatev
 ```
 
 **Past Java 8, add `--source-seeds`.** Those two JDK requirements collide. EvoSuite 1.2.0 only runs
-on a Java 8 JVM, and a Java 8 JVM cannot load a snapshot compiled at class-file 53 or newer — so on
+on a Java 8 JVM, and a Java 8 JVM cannot load a class compiled at class-file 53 or newer — so on
 any project built past Java 8, step 4 detects the mismatch and skips itself:
 
 ```
-SKIPPING EvoSuite for openmeetings: snapshots are class-file 61 (Java 17) but the EvoSuite
+SKIPPING EvoSuite for openmeetings: classes are class-file 61 (Java 17) but the EvoSuite
 JVM .../java-8-openjdk-amd64/bin/java only loads up to 52 (Java 8)
 ```
 
 That is deliberate — EvoSuite on a newer JVM hangs rather than failing — and the run continues, but
 **the fuzzer then starts from an empty corpus**. `--source-seeds` mines the constants out of the
-snapshot sources instead, which needs no JVM of any particular version:
+original sources instead, which needs no JVM of any particular version:
 
 ```bash
 scripts/run_tmux.sh openmeetings --source-seeds          # Java 17: the only way to get seeds
@@ -217,28 +239,27 @@ every other project.
 
 | Step | Script | What it produces |
 |------|--------|------------------|
-| 0 | `project_setup.py <p> -d <dir>` | the project's fat jar, its `-P<p>` profile in `pom.xml`, its `projects.json` entry — **once per project**, not part of `run.py` |
-| 1 | `build_project.py <p> --original <o> --refactored <r>` | `manifest.json` + renamed `<Class>{Original,Refactored}` snapshots |
-| 2 | `prune.py <p>` | iterative `./mvnw -P<p> test-compile`; drops class pairs whose deps don't resolve |
+| 0 | `project_setup.py <p> --original <o>` | the project's fat jar, its `-P<p>` profile in `pom.xml`, its `projects.json` entry — **once per project**, not part of `run.py` |
+| 1 | `build_project.py <p> --original <o> --refactored <r>` | `manifest.json` of the changed methods |
+| 2 | `compile_sides.py <p>` | both sides compiled under their real names into `target/sides/<p>/`; `reports/<p>/compile_status.csv` |
 | 3 | `gen_harnesses.py <p> <dur>` | one thin Jazzer harness per manifest method |
-| 4 | `gen_unittests.py <p>` | EvoSuite unit suites for the `<Class>Original` snapshots |
+| 4 | `gen_unittests.py <p>` | EvoSuite unit suites for the original classes |
 | 5 | `gen_seeds.py <p>` | those tests' constants, encoded as the fuzzer's seed corpus |
 | 6 | `run_project.py <p>` | fuzzes each method + differential coverage → `reports/<p>/auto-fuzz-report.md` |
 
 Steps 1, 3, 6 are pure per-project; steps 2, 4, 5 need the project's dependencies on the classpath,
 which is what step 0 provides. Steps 4–5 need `scripts/setup_evosuite.sh` first.
 You can run steps individually, all at once via `run.py`, or from scratch and detached via
-`scripts/run_tmux.sh`. `run.py --setup <dir>` folds step 0 in.
+`scripts/run_tmux.sh`. `run.py --setup [<dir>]` folds step 0 in (building `<dir>`, else `--original`).
 
 **Step 2 fails loudly now.** Maven treats an unknown `-P` as a warning and exits 0, so a project
 with no profile used to sail through a `test-compile` that built nothing, and every method came out
-`harness error` with nothing saying why. `prune.py` checks the profile exists before it runs and
-that the compile actually produced snapshot classes after it.
+`harness error` with nothing saying why. `compile_sides.py` checks the profile exists first.
 
 ## Seeding the fuzzer with generated unit tests
 
 The fuzzer does not start from nothing. Before fuzzing, EvoSuite generates a unit-test suite for
-each `<Class>Original` snapshot, and the constants those tests use become libFuzzer's starting
+each changed original class, and the constants those tests use become libFuzzer's starting
 corpus — so the search begins from values that already reach the code instead of growing them from
 random bytes. This is part of the normal pipeline, not an option.
 
@@ -248,7 +269,7 @@ python3 run.py example
 ```
 
 On a project built past Java 8 this step cannot run at all — EvoSuite 1.2.0 needs a Java 8 JVM and
-a Java 8 JVM cannot load the snapshots — so it detects the mismatch, skips itself, and the fuzzer
+a Java 8 JVM cannot load the compiled classes — so it detects the mismatch, skips itself, and the fuzzer
 starts unseeded unless you pass `--source-seeds`. See [Run it on your own
 project](#run-it-on-your-own-project).
 
@@ -339,7 +360,7 @@ mismatch stops the run.
 |---|---|
 | `never ran` | the harness completed but no input ever built a receiver **and** arguments for **both** sides, so nothing was compared. The `Why` column names the side that refused. Usually a fact about the refactoring — in the demo, `Simple.foo` lands here because the *refactored constructor throws*. **Not** equivalence. |
 | `structurally untestable` | no input could ever work: an abstract receiver with no concrete subtype, or a parameter type nothing can build. |
-| `pruned snapshot` | the pair did not compile and was dropped by the compile gate. |
+| `not compiled` | the class is missing from `target/sides` (normally `compile_sides.py` never lets such a method through); rerun it. |
 | `harness error` | missing class at runtime, inaccessible member, bad manifest entry. |
 | `sanitizer finding` | it *did* run on both sides without diverging, but a Jazzer sanitizer fired on the code itself. Worth reading — it is a bug report about the code, just not a differential result. |
 
@@ -406,9 +427,9 @@ Method discovery, the changed/unchanged decision and parameter classification al
 compiled on demand, like `CovReport.java`; it is deliberately *not* a pom dependency, so it never
 reaches the fuzzing classpath.
 
-**Syntactic only, on purpose.** JavaParser is used without symbol resolution. If symbol resolution were turned on, JavaParser would throw errors or fail to parse whenever it encountered an unknown class or unresolved method, these are alseady being done later in the pruning setps. These trees routinely
-reference types that are on no classpath yet — the whole point of the later `prune` step is that
-some pairs do not compile — so anything needing resolution would fail on exactly the inputs this has
+**Syntactic only, on purpose.** JavaParser is used without symbol resolution. If symbol resolution were turned on, JavaParser would throw errors or fail to parse whenever it encountered an unknown class or unresolved method, that is checked later, by the compile step. These trees routinely
+reference types that are on no classpath yet — the whole point of the later compile step is that
+some files do not compile — so anything needing resolution would fail on exactly the inputs this has
 to handle. Everything required here is syntax: which methods exist, what their bodies are, and
 whether the two sides differ.
 
@@ -440,21 +461,21 @@ scripts/
   project_setup.py                       (0) build a project -> fat jar + pom profile + registry entry
   projects.py                            the registry itself; `python3 scripts/projects.py` lists it
   run_tmux.sh                            from-scratch detached run of the whole pipeline
-  build_project.py                       (1) two-tree diff -> manifest + snapshots
-  prune.py                               (2) compile-and-drop gate
+  build_project.py                       (1) two-tree diff -> manifest of changed methods
+  compile_sides.py                       (2) compile both sides under real names (gates 1 + 2)
   gen_harnesses.py                       (3) one Jazzer harness per method
-  gen_unittests.py                       (4) EvoSuite suites for the Original snapshots
+  gen_unittests.py                       (4) EvoSuite suites for the original classes
   gen_seeds.py                           (5) extract constants + encode them as a seed corpus
   extract_seeds.py                       (5a) per-test-case constants -> seed-values.json
-  source_seeds.py                        (5b) --source-seeds: same, mined from the snapshot sources
+  source_seeds.py                        (5b) --source-seeds: same, mined from the original sources
   run_project.py                         (6) fuzz + differential coverage -> report
   unit_coverage.py                       optional: what the unit suite alone covers, per method
   MethodExtractor.java                   (1a) JavaParser AST: find + diff + classify methods
-  auto_select.py                         package lookup + top-level type spans (raw-text helpers)
   CovReport.java                         per-method branch/line extractor (reads Jazzer's .exec)
   setup_evosuite.sh                      fetch EvoSuite + install its runtime locally
 src/test/java/fuzz/auto/
   GenericDifferential.java               the shared reflection engine + oracle
+  SideLoader.java                        loads one side (original/refactored) under real names
   ObjectFactory.java                     builds any argument: scalars -> autofuzz -> ctor synthesis
   ReplayProvider.java                    deterministic provider so both sides get identical inputs
   SeedRecorder.java                      its inverse: writes the bytes that decode to given values
@@ -466,7 +487,7 @@ examples/apex-core/{original,refactored}/          worked example input trees
 examples/apex-core/sample-report.md                what the output looks like
 ```
 
-`src/test/Dataset/`, `src/test/fuzzing/`, `src/test/resources/`, `reports/`, and `target/` are all
+`src/test/fuzzing/`, `src/test/resources/`, `reports/`, and `target/` are all
 generated by the pipeline and git-ignored — regenerate them with `run.py`.
 
 ## How the oracle decides (and its limits)
@@ -495,7 +516,7 @@ Comparing object state naively reports a divergence for almost every real refact
 walk excludes four things that are representation rather than behaviour:
 
 - **Fields present on only one side.** Changing internal representation *is* refactoring:
-  apex-core's `RoundRobinRefactored` adds `index` and `nodeList` fields the original lacks. Only
+  apex-core's refactored `RoundRobin` adds `index` and `nodeList` fields the original lacks. Only
   fields both versions declare are compared.
 - **Ambient JVM state.** A field walk follows references wherever they lead — a `ThreadGroup`
   reaches its parent and thus every live thread in the process. `Thread`, `ThreadGroup`,
@@ -504,8 +525,10 @@ walk excludes four things that are representation rather than behaviour:
   `equals()`; two counters both holding 1 are equal here, compared by rendered value.
 - **Known-nondeterministic field names** (timestamps, hashes, `random`), listed in `Digest`.
 
-The class name in a digest has its `Original`/`Refactored` suffix stripped, and map/set entries are
-sorted, since `HashMap` iteration order depends on identity hash codes.
+Both sides use the same class names, so a digest compares them directly; enum constants and
+`Class` objects are compared by name, since the two sides' copies come from different
+classloaders and are never `equals()`. Map/set entries are sorted, since `HashMap` iteration order
+depends on identity hash codes.
 
 ### Remaining limits
 

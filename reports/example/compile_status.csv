@@ -1,0 +1,4 @@
+File,Original,Refactored,Status,Error,Methods
+example/Grader.java,ok,ok,OK,,Grader.grade;Grader.passes;Grader.total
+example/Simple.java,ok,ok,OK,,Simple.ctor;Simple.foo;Simple.bar
+example/Widget.java,ok,ok,OK,,Widget.combine;Widget.half

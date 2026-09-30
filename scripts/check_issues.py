@@ -5,7 +5,7 @@ Regression suite for the reported bugs, run end to end through the real pipeline
     python3 scripts/check_issues.py [--duration 15s] [--case NAME] [--keep]
 
 Each case under examples/issues/ is a minimal original/refactored pair with a known correct
-outcome. The script runs build -> prune -> harnesses -> fuzz for each and asserts both the number
+outcome. The script runs build -> compile sides -> harnesses -> fuzz for each and asserts both the number
 of methods the differ found and the verdict the fuzzer reached, then prints PASS/FAIL per case.
 
 WHY IT ASSERTS TWO DIFFERENT THINGS
@@ -18,7 +18,7 @@ The guard-* cases exist so the fixes cannot be "passed" by over-reporting: blank
 must not make a comment edit look like a change, and comparing cause chains must not make two
 identical throws look different.
 
-This uses the example profile's Dataset/harness directories, so it OVERWRITES whatever project was
+This uses the example profile's manifest/harness directories, so it OVERWRITES whatever project was
 built there last. Rebuild your project afterwards (or pass --keep to skip the final cleanup note).
 """
 import argparse
@@ -62,7 +62,7 @@ def build(case):
     # target/seeds/example too: it holds whatever project was seeded last (the demo, typically),
     # whose seeds belong to harnesses these fixtures do not have. Jazzer would ignore them, but the
     # report header would still claim a seed corpus that had nothing to do with the run.
-    for stale in ("src/test/Dataset/example", "src/test/resources/example",
+    for stale in ("target/sides/example", "src/test/resources/example",
                   "src/test/fuzzing/example", "src/test/resources/fuzz",
                   "target/seeds/example"):
         subprocess.run(["rm", "-rf", os.path.join(MODULE, stale)], cwd=MODULE)
@@ -85,7 +85,7 @@ def fuzz(duration, case):
     Each case writes its own report. They all build into the `example` profile, so a shared report
     name would leave only the last case's file behind — which is exactly what happened before.
     """
-    run([sys.executable, os.path.join(MODULE, "scripts/prune.py"), "example"])
+    run([sys.executable, os.path.join(MODULE, "scripts/compile_sides.py"), "example"])
     run([sys.executable, os.path.join(MODULE, "scripts/gen_harnesses.py"), "example", duration])
     r = run([sys.executable, os.path.join(MODULE, "scripts/run_project.py"), "example",
              "--report-dir", REPORT_DIR, "--report", case + ".md"])
@@ -165,7 +165,7 @@ def main():
         print(f"all {len(names)} cases PASSED")
     print(f"reports: {os.path.relpath(REPORT_DIR, MODULE)}/  "
           f"(one per case, plus SUMMARY.md)")
-    print("Note: this overwrote src/test/Dataset/example — rebuild your project before fuzzing it.")
+    print("Note: this overwrote the example project — rebuild it before fuzzing it.")
     return 1 if failures else 0
 
 

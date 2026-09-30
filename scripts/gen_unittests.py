@@ -5,18 +5,18 @@ Generate a unit-test suite for every method in a project's manifest, with EvoSui
     gen_unittests.py <project> [--budget 60] [--jobs 8] [--max N] [--force] [--side original]
 
 EvoSuite is run once per *class* (not per method — it generates whole-class suites) over the
-compiled <Class>Original snapshots in target/test-classes, i.e. exactly the classes the fuzzer
-targets. The suites are the input to two later steps:
+original side's compiled classes in target/sides/<project>/original (scripts/compile_sides.py),
+under their real names, i.e. exactly the classes the fuzzer targets. The suites are the input to two later steps:
 
     scripts/unit_coverage.py   how much of each method the unit suite covers
     scripts/extract_seeds.py   the concrete argument values, which become the fuzzer's seed corpus
 
 Why the ORIGINAL side: the differential oracle asks whether the refactored method still behaves
 like the original, so the original is the reference the seeds should exercise. Pass
---side refactored to generate against the other snapshot instead.
+--side refactored to generate against the other side instead.
 
 Outputs, all under target/evosuite/<project>/:
-    evosuite-tests/<pkg>/<Class>Original_ESTest.java   the suite (plain JUnit 4, no scaffolding)
+    evosuite-tests/<pkg>/<Class>_ESTest.java           the suite (plain JUnit 4, no scaffolding)
     evosuite-report/<class>/statistics.csv             EvoSuite's own coverage numbers, per class
     logs/<class>.log                                   that class's generation log
     generation.json                                    per-class status for later steps
@@ -37,11 +37,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 MODULE = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-# EvoSuite's own default criterion set, minus the two that cost the most for what they add here.
-# WEAKMUTATION drives assertion quality, which we do not use (seeds are argument values, and the
-# coverage question is about reaching code, not about killing mutants); dropping it roughly halves
-# generation time on the apex classes. CBRANCH/METHODNOEXCEPTION stay: they push the search toward
-# distinct call outcomes, which is what makes a seed interesting to the fuzzer.
+# EvoSuite 1.2.0's default criterion set (picked based on the https://www.tesble.com/10.1007/978-3-319-22183-0_7), minus WEAKMUTATION
+# WEAKMUTATION adds a separate search goal for every mutant in a class, which makes it the most expensive criterion.
 CRITERIA = "LINE:BRANCH:EXCEPTION:METHOD:METHODNOEXCEPTION:CBRANCH:OUTPUT"
 
 
@@ -85,6 +82,7 @@ def jvm_class_version(java):
     try:
         r = subprocess.run([java, "-XshowSettings:properties", "-version"],
                            capture_output=True, text=True, timeout=60)
+        # print(r.stdout, end="", flush=True)
     except (OSError, subprocess.SubprocessError):
         return None
     m = re.search(r"java\.class\.version\s*=\s*(\d+)", (r.stdout or "") + (r.stderr or ""))
@@ -101,7 +99,7 @@ def class_file_version(path):
     return int.from_bytes(head[6:8], "big") if head[:4] == b"\xca\xfe\xba\xbe" else None
 
 
-def version_mismatch(classes, java):
+def version_mismatch(classes, java, classes_dir):
     """Why EvoSuite cannot run here, or None if it can."""
     ceiling = jvm_class_version(java)
     if ceiling is None:
@@ -114,33 +112,36 @@ def version_mismatch(classes, java):
                 f"class-file {ceiling} (Java {ceiling - 44}); set JAVA8_HOME")
     seen = {}
     for fqn in classes:
-        v = class_file_version(os.path.join(MODULE, "target/test-classes",
-                                            fqn.replace(".", "/") + ".class"))
+        v = class_file_version(os.path.join(classes_dir, fqn.replace(".", "/") + ".class"))
         if v:
             seen.setdefault(v, fqn)
     if not seen or max(seen) <= ceiling:
         return None
     worst = max(seen)
-    return (f"snapshots are class-file {worst} (Java {worst - 44}) but the EvoSuite JVM {java} "
+    return (f"classes are class-file {worst} (Java {worst - 44}) but the EvoSuite JVM {java} "
             f"only loads up to {ceiling} (Java {ceiling - 44}); e.g. {seen[worst]}")
 
 
-def project_classpath(project):
-    """target/test-classes plus the project profile's dependencies, as one -projectCP string."""
+def project_classpath(project, classes_dir):
+    """One side's compiled classes, then the project profile's dependencies (-projectCP).
+
+    The side directory comes first: it holds the changed classes, which the fat jar among the
+    dependencies also contains under the same names, in their unchanged (original) form.
+    """
     cache = os.path.join(MODULE, "target", f"cp-{project}.txt")
     if not os.path.isfile(cache):
         r = subprocess.run([os.path.join(MODULE, "mvnw"), f"-P{project}", "-q",
                             "dependency:build-classpath", f"-Dmdep.outputFile={cache}",
                             "-DincludeScope=test"], cwd=MODULE, capture_output=True, text=True)
+        # print(r.stdout, end="", flush=True)
         if r.returncode != 0 or not os.path.isfile(cache):
             sys.exit(f"could not resolve the {project} classpath:\n{r.stdout}\n{r.stderr}")
     deps = open(cache).read().strip()
-    classes = os.path.join(MODULE, "target/test-classes")
-    return f"{classes}{os.pathsep}{deps}" if deps else classes
+    return f"{classes_dir}{os.pathsep}{deps}" if deps else classes_dir
 
 
 def target_classes(project, side):
-    """The distinct snapshot classes to generate for, in manifest order (deduplicated)."""
+    """The distinct classes to generate for, in manifest order (deduplicated)."""
     man = json.load(open(os.path.join(MODULE, "src/test/resources", project, "manifest.json")))
     out = []
     for e in man["methods"]:
@@ -169,18 +170,12 @@ def statistics(base):
     return rows
 
 
-def ensure_compiled(project):
-    """Compile this project's snapshots into target/test-classes before using them.
-
-    Not optional and not merely a convenience: maven-compiler-plugin wipes the whole output
-    directory when it notices the source roots changed, so building any OTHER profile deletes this
-    project's classes. EvoSuite then reports "Unknown class" for every target and produces an empty
-    run that looks like a tool failure (observed: 27/27 classes, 0 tests, 0 seconds each).
-    """
-    r = subprocess.run([os.path.join(MODULE, "mvnw"), f"-P{project}", "-q", "test-compile"],
-                       cwd=MODULE, capture_output=True, text=True)
-    if r.returncode != 0:
-        sys.exit(f"test-compile failed for {project}:\n{r.stdout[-3000:]}\n{r.stderr[-2000:]}")
+def side_classes(project, side):
+    """Where scripts/compile_sides.py put this side's classes; exits if it has not run."""
+    man = json.load(open(os.path.join(MODULE, "src/test/resources", project, "manifest.json")))
+    if "sides" not in man:
+        sys.exit(f"no compiled sides for {project} — run scripts/compile_sides.py first")
+    return man["sides"][side]
 
 
 def main():
@@ -190,7 +185,7 @@ def main():
     ap.add_argument("--budget", type=int, default=60, help="search seconds per class (default 60)")
     ap.add_argument("--max", type=int, default=0, help="only the first N classes (smoke test)")
     ap.add_argument("--side", default="original", choices=("original", "refactored"),
-                    help="which snapshot to generate tests for (default original)")
+                    help="which side to generate tests for (default original)")
     ap.add_argument("--force", action="store_true", help="regenerate suites that already exist")
     ap.add_argument("--jobs", type=int, default=8,
                     help="classes to generate in parallel (default 8; EvoSuite is one JVM each)")
@@ -198,21 +193,22 @@ def main():
                     help="seconds past --budget before a class is killed (default 180)")
     args = ap.parse_args()
 
-    ensure_compiled(args.project)
+    ## path to .class files of original project
+    classes_dir = side_classes(args.project, args.side)
     jar = evosuite_jar()
     java = java8()
-    cp = project_classpath(args.project)
+    cp = project_classpath(args.project, classes_dir)
     base = os.path.join(MODULE, "target/evosuite", args.project)
     os.makedirs(base, exist_ok=True)
 
     classes = target_classes(args.project, args.side)
     if args.max:
         classes = classes[:args.max]
-    reason = version_mismatch(classes, java)
+    reason = version_mismatch(classes, java, classes_dir)
     if reason:
         print(f"SKIPPING EvoSuite for {args.project}: {reason}")
         print("  no suites will be generated; scripts/gen_seeds.py will mine seeds from the "
-              "original snapshot sources instead.")
+              "original sources instead.")
         with open(os.path.join(base, "generation.json"), "w") as f:
             json.dump({"project": args.project, "side": args.side, "budget": args.budget,
                        "status": "skipped", "reason": reason, "classes": []}, f, indent=2)
@@ -285,6 +281,7 @@ def main():
             with open(log, "w") as lf:
                 r = subprocess.run(cmd, cwd=work, stdout=lf, stderr=subprocess.STDOUT,
                                    timeout=args.budget + args.timeout_slack)
+                # print(r.stdout, end="", flush=True)
             rc = r.returncode
         except subprocess.TimeoutExpired:
             rc, status = 1, "timeout"

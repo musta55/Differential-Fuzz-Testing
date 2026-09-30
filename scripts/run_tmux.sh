@@ -12,11 +12,12 @@
 #   --jobs <n>           EvoSuite classes in parallel      (default 10)
 #   --max <n>            smoke test: first N methods, and only their classes
 #                        (the bound reaches EvoSuite too, so a 5-method run is minutes)
-#   --setup <dir>        build+register the project from this checkout first, then run
+#   --setup [<dir>]      build+register the project first, then run. Builds <dir> if
+#                        given, else the --original tree
 #   --build-args <args>  with --setup: extra args for the project's own build
-#   --source-seeds       seed from the snapshot sources, not EvoSuite. Needed on any project
+#   --source-seeds       seed from the project sources, not EvoSuite. Needed on any project
 #                        built past Java 8: EvoSuite 1.2.0 needs a Java 8 JVM, which cannot
-#                        load those snapshots, so step 4 skips and the fuzzer starts unseeded
+#                        load those classes, so step 4 skips and the fuzzer starts unseeded
 #   --fg                 run here instead of detaching into tmux
 #   --list               show every registered project and exit
 #
@@ -27,14 +28,13 @@
 # prerequisites are derived from the registered project's own entry.
 #
 # To run a project the first time:
-#   python3 scripts/project_setup.py <name> -d <a checkout of the project> \
-#       --original <origTree> --refactored <refTree>
+#   python3 scripts/project_setup.py <name> --original <origTree> --refactored <refTree>
 #   scripts/run_tmux.sh <name> --max 5        # smoke test the wiring
 #   scripts/run_tmux.sh <name>                # full run
-# or in one go:  scripts/run_tmux.sh <name> --setup <checkout> --original <o> --refactored <r>
+# or in one go:  scripts/run_tmux.sh <name> --setup --original <o> --refactored <r>
 #
 # FROM SCRATCH means the generated state is deleted first: the JavaParser tool and its AST
-# output, the EvoSuite suites, the encoded seed corpus, the snapshots and harnesses, the
+# output, the EvoSuite suites, the encoded seed corpus, the compiled sides and harnesses, the
 # carried-over libFuzzer corpus, and the previous report. Otherwise a run can pass on stale
 # artifacts — EvoSuite reports "reused", the extractor never recompiles, and libFuzzer starts
 # from inputs an earlier run discovered, so the report describes history rather than this run.
@@ -55,6 +55,7 @@ UNIT_BUDGET="40"
 JOBS="10"
 ORIG=""
 REF=""
+SETUP=0
 SETUP_DIR=""
 BUILD_ARGS=""
 SRCSEEDS=""
@@ -71,7 +72,8 @@ while [[ $# -gt 0 ]]; do
     --duration)    DURATION="$2";    shift 2 ;;
     --unit-budget) UNIT_BUDGET="$2"; shift 2 ;;
     --jobs)        JOBS="$2";        shift 2 ;;
-    --setup)       SETUP_DIR="$2";   shift 2 ;;
+    --setup)       SETUP=1
+                   if [[ -n "${2:-}" && "$2" != -* ]]; then SETUP_DIR="$2"; shift 2; else shift; fi ;;
     --build-args)  BUILD_ARGS="$2";  shift 2 ;;
     --source-seeds) SRCSEEDS="--source-seeds"; shift ;;
     --max)         MAXARG="--max $2"; shift 2 ;;
@@ -102,9 +104,12 @@ fail() { echo "PREREQ FAILED: $*" >&2; exit 1; }
 # ── optional step 0: build + register the project ──────────────────────────
 # Done before the tmux relaunch so a setup failure is reported to the terminal the user is
 # looking at, rather than into a detached session's log.
-if [[ -n "$SETUP_DIR" ]]; then
-  echo "---- registering $PROJECT from $SETUP_DIR ----"
-  setup_args=(python3 scripts/project_setup.py "$PROJECT" -d "$SETUP_DIR")
+if [[ $SETUP -eq 1 ]]; then
+  [[ -n "$SETUP_DIR" || -n "$ORIG" ]] \
+    || fail "--setup with no <dir> builds the --original tree, so --original is required"
+  echo "---- registering $PROJECT from ${SETUP_DIR:-$ORIG} ----"
+  setup_args=(python3 scripts/project_setup.py "$PROJECT")
+  [[ -n "$SETUP_DIR" ]] && setup_args+=(-d "$SETUP_DIR")
   [[ -n "$ORIG" ]] && setup_args+=(--original "$ORIG")
   [[ -n "$REF"  ]] && setup_args+=(--refactored "$REF")
   [[ -n "$BUILD_ARGS" ]] && setup_args+=(--build-args "$BUILD_ARGS")
@@ -117,7 +122,7 @@ fi
 if [[ -z "$ORIG" || -z "$REF" ]]; then
   echo "PREREQ FAILED: no source trees for '$PROJECT'." >&2
   echo "  Pass them:   --original <origTree> --refactored <refTree>" >&2
-  echo "  Or register: python3 scripts/project_setup.py $PROJECT -d <checkout> \\" >&2
+  echo "  Or register: python3 scripts/project_setup.py $PROJECT \\" >&2
   echo "                   --original <o> --refactored <r>" >&2
   echo >&2
   python3 scripts/projects.py >&2
@@ -152,9 +157,9 @@ fi
 
 grep -q "<id>$PROJECT</id>" "$MODULE/pom.xml" \
   || fail "pom.xml has no <profile><id>$PROJECT</id>. Maven ignores an unknown -P and still
-                exits 0, so the run would compile no snapshots and report every method as a
+                exits 0, so the run would compile no harnesses and report every method as a
                 harness error. Register it:
-                  python3 scripts/project_setup.py $PROJECT -d <checkout of the project>"
+                  python3 scripts/project_setup.py $PROJECT --original <origTree>"
 
 [[ -d "$ORIG" && -d "$REF" ]] || fail "source trees not found: $ORIG / $REF"
 
@@ -163,10 +168,10 @@ grep -q "<id>$PROJECT</id>" "$MODULE/pom.xml" \
 PROJ_JAR="$(python3 scripts/projects.py "$PROJECT" jar)"
 if [[ -n "$PROJ_JAR" && ! -f "$PROJ_JAR" ]]; then
   fail "the fat jar this profile points at is gone: $PROJ_JAR
-                Rebuild it: python3 scripts/project_setup.py $PROJECT -d <checkout>"
+                Rebuild it: python3 scripts/project_setup.py $PROJECT --original <origTree>"
 fi
 
-# ── JDK checks. The snapshots compile at the project's own release, so a JDK older than
+# ── JDK checks. Both sides compile at the project's own release, so a JDK older than
 #    that cannot build them at all; EvoSuite 1.2.0 separately needs a Java 8 to run. ──
 NEED_JAVA="$(python3 scripts/projects.py "$PROJECT" java)"
 HAVE_JAVA=$(javac -version 2>&1 | sed -E 's/javac 1\.([0-9]+).*/\1/; s/javac ([0-9]+).*/\1/')
@@ -209,11 +214,11 @@ echo
 echo "---- clearing generated state ----"
 rm -rf "target/parsetool" "target/ast-methods.json" \
        "target/evosuite/$PROJECT" "target/seeds/$PROJECT" \
-       "src/test/Dataset/$PROJECT" "src/test/resources/$PROJECT" \
+       "target/sides/$PROJECT" "src/test/resources/$PROJECT" \
        "src/test/fuzzing/$PROJECT" "src/test/resources/fuzz" \
        "reports/$PROJECT" "target/fuzz-logs/$PROJECT" \
        "target/fuzz-cwd/.cifuzz-corpus" "target/cp-$PROJECT.txt"
-echo "  parser tool + AST json, evosuite suites, seed corpus, snapshots, harnesses,"
+echo "  parser tool + AST json, evosuite suites, seed corpus, compiled sides, harnesses,"
 echo "  libFuzzer corpus, previous report — all removed"
 echo
 

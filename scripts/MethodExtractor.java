@@ -57,7 +57,7 @@ import com.google.gson.GsonBuilder;
  *
  * <h2>What counts as changed</h2>
  * Bodies are compared as ASTs printed without comments, so reformatting and comment edits are not
- * changes but literal edits are. Signatures are compared too: a same-arity parameter-type change
+ * changes but literal edits are. Signatures are compared too: a same-arity (same num of parameters) parameter-type change
  * used to leave the bodies equal and the method was silently dropped.
  */
 public final class MethodExtractor
@@ -90,8 +90,15 @@ public final class MethodExtractor
     List<String> problems = new ArrayList<>();
 
     for (Path ref : javaFiles(refRoot)) {
+      // staring refRoot which path leads to ref
+      // eg: refRoot - /path/to/refactored/projects/project
+      // ref - /path/to/refactored/projects/project/path/test.java
+      // rel - path/test.java
       Path rel = refRoot.relativize(ref);
-      Path orig = origRoot.resolve(rel);
+      
+      // resolve does the opposite of relativize - finds the mathing relative path in the original root
+      Path orig = origRoot.resolve(rel); 
+
       if (!Files.isRegularFile(orig)) {
         continue; // a brand-new class has no original to diff against
       }
@@ -153,13 +160,17 @@ public final class MethodExtractor
   }
 
   // ── pairing + diffing ───────────────────────────────────────────────────────
-
+  // class is returned only when both versions exist at the same path, both have the primary type, and at least one method present in both versions actually changed.
   private static Map<String, Object> comparePair(String rel, CompilationUnit oCu,
       CompilationUnit rCu, String project, List<String> problems)
   {
-    String stem = rel.substring(rel.lastIndexOf('/') + 1).replaceAll("\\.java$", "");
-    Optional<TypeDeclaration<?>> oPrimary = primaryType(oCu, stem);
-    Optional<TypeDeclaration<?>> rPrimary = primaryType(rCu, stem);
+    // gets the class name from the file path.
+    String className = rel.substring(rel.lastIndexOf('/') + 1).replaceAll("\\.java$", "");
+    
+    // primaryType finds the top-level type in a parsed Java file whose name matches the filename. That type is the file's "primary" class.
+    // idea here is all the methods in a single class could be identified as <Class>.method
+    Optional<TypeDeclaration<?>> oPrimary = primaryType(oCu, className);
+    Optional<TypeDeclaration<?>> rPrimary = primaryType(rCu, className);
     if (!oPrimary.isPresent() || !rPrimary.isPresent()) {
       return null; // no type named after the file: nothing addressable as <Class>.method
     }
@@ -168,8 +179,8 @@ public final class MethodExtractor
       return null; // the snapshot writer needs a package to place the file
     }
 
-    Map<String, CallableDeclaration<?>> oMethods = callables(oPrimary.get(), stem);
-    Map<String, CallableDeclaration<?>> rMethods = callables(rPrimary.get(), stem);
+    Map<String, CallableDeclaration<?>> oMethods = callables(oPrimary.get());
+    Map<String, CallableDeclaration<?>> rMethods = callables(rPrimary.get());
 
     // Identify helper methods added in refactored version
     List<CallableDeclaration<?>> helperMethods = new ArrayList<>();
@@ -202,8 +213,8 @@ public final class MethodExtractor
       }
       String refactoredCode = refBuilder.toString();
 
-      // 2. Generate file name: e.g., ClassName.methodName.java
-      String filename = stem + "." + rM.getNameAsString() + ".java";
+      // 2. Generate file name: e.g., ClassName.methodName(int,java.lang.String).java
+      String filename = className + "." + snippetSignature(rM) + ".java";
       // 3. Save to output directories
       try {
         saveSnippet(Paths.get("tool/original-methods", project, filename), originalCode);
@@ -212,7 +223,7 @@ public final class MethodExtractor
         problems.add("Failed to save snippet " + filename + ": " + ex);
       }
 
-      methods.add(describe(rM, stem, change));
+      methods.add(describe(rM, className, change));
     }
     if (methods.isEmpty()) {
       return null;
@@ -221,16 +232,16 @@ public final class MethodExtractor
     Map<String, Object> pair = new LinkedHashMap<>();
     pair.put("relPath", rel);
     pair.put("package", pkg);
-    pair.put("primaryType", stem);
+    pair.put("primaryType", className);
     pair.put("methods", methods);
-    pair.put("secondaryTypes", secondaryNames(rCu, stem));
+    pair.put("secondaryTypes", secondaryNames(rCu, className));
     return pair;
   }
 
-  private static Optional<TypeDeclaration<?>> primaryType(CompilationUnit cu, String stem)
+  private static Optional<TypeDeclaration<?>> primaryType(CompilationUnit cu, String fileName)
   {
     for (TypeDeclaration<?> t : cu.getTypes()) {
-      if (t.getNameAsString().equals(stem)) {
+      if (t.getNameAsString().equals(fileName)) {
         return Optional.of(t);
       }
     }
@@ -248,6 +259,24 @@ public final class MethodExtractor
     return out;
   }
 
+  /**
+   * The snippet's file name without the class or extension, e.g. {@code flush(int)}.
+   *
+   * <p>Spelled exactly like the fuzzer report's Signature column (manifest method name plus the
+   * {@link #describe} parameter types), so snippets and fuzzer rows join on it, and so same-name
+   * overloads no longer overwrite each other's file.
+   */
+  private static String snippetSignature(CallableDeclaration<?> c)
+  {
+    List<String> params = new ArrayList<>();
+    for (Parameter p : c.getParameters()) {
+      params.add(fqn(p.getType().asString() + (p.isVarArgs() ? "[]" : "")));
+    }
+    String name = c instanceof ConstructorDeclaration ? "<init>" : c.getNameAsString();
+    // A path separator is the one character a file name cannot hold.
+    return (name + "(" + String.join(",", params) + ")").replaceAll("[/\\\\]", "_");
+  }
+
   private static void saveSnippet(Path targetPath, String content) throws IOException {
     Files.createDirectories(targetPath.getParent());
     Files.write(targetPath, content.getBytes(StandardCharsets.UTF_8));
@@ -260,7 +289,7 @@ public final class MethodExtractor
    * so the old brace-depth guard is unnecessary. Overloads that share an arity get a {@code #n}
    * suffix, matching the manifest ids the rest of the pipeline already uses.
    */
-  private static Map<String, CallableDeclaration<?>> callables(TypeDeclaration<?> type, String stem)
+  private static Map<String, CallableDeclaration<?>> callables(TypeDeclaration<?> type)
   {
     Map<String, CallableDeclaration<?>> out = new LinkedHashMap<>();
     for (BodyDeclaration<?> m : type.getMembers()) {
