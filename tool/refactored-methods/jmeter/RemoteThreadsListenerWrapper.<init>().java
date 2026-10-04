@@ -1,0 +1,3 @@
+public RemoteThreadsListenerWrapper() {
+    this(null);
+}

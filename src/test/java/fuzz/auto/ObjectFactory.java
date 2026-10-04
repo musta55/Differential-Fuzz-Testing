@@ -59,11 +59,19 @@ final class ObjectFactory
     CONCRETE.put(java.io.OutputStream.class, java.io.ByteArrayOutputStream.class);
     CONCRETE.put(java.io.Reader.class, java.io.StringReader.class);
     CONCRETE.put(java.io.Writer.class, java.io.StringWriter.class);
+    CONCRETE.put(java.io.DataInput.class, java.io.DataInputStream.class);
+    CONCRETE.put(java.io.DataOutput.class, java.io.DataOutputStream.class);
+    CONCRETE.put(java.util.Comparator.class, java.text.Collator.class);
   }
 
-  /** Cache of abstract/interface type -> discovered concrete subtype (or absent if none). */
-  private static final Map<Class<?>, Class<?>> SUBTYPE = new ConcurrentHashMap<>();
-  private static final Class<?> NONE = Void.class; // cache sentinel: scanned, found nothing
+  /** Cache of abstract/interface type -> its ranked concrete subtypes (empty if none). */
+  private static final Map<Class<?>, List<Class<?>>> SUBTYPES = new ConcurrentHashMap<>();
+
+  /**
+   * How many concrete subtypes to try per abstract type. Each failed attempt still consumes fuzz
+   * bytes, and finding more means loading more classes, so this stays small.
+   */
+  private static final int MAX_SUBTYPES = Integer.getInteger("fuzz.maxSubtypes", 4);
 
   /** Thrown when no tier can produce a value of the requested type. */
   static final class Unbuildable extends RuntimeException
@@ -115,6 +123,16 @@ final class ObjectFactory
     return build(data, String.class);
   }
 
+  private static Object buildCallbackArray(FuzzedDataProvider data, Class<?> componentType)
+  {
+    javax.security.auth.callback.Callback[] callbacks =
+        new javax.security.auth.callback.Callback[data.consumeInt(1, 4)];
+    for (int i = 0; i < callbacks.length; i++) {
+      callbacks[i] = (javax.security.auth.callback.Callback) build(data, componentType);
+    }
+    return callbacks;
+  }
+
   /** Element count for a generic collection; small, because the point is entering the loop. */
   private static final int MAX_ELEMENTS = 8;
 
@@ -124,7 +142,7 @@ final class ObjectFactory
     int n = data.consumeInt(0, MAX_ELEMENTS);
     @SuppressWarnings("unchecked")
     java.util.Collection<Object> c =
-        (java.util.Collection<Object>) newInstanceOf(effective(raw), java.util.ArrayList.class);
+        (java.util.Collection<Object>) newInstanceOf(data, effective(raw), java.util.ArrayList.class);
     for (int i = 0; i < n; i++) {
       try {
         c.add(build(data, elem));
@@ -141,7 +159,7 @@ final class ObjectFactory
     int n = data.consumeInt(0, MAX_ELEMENTS);
     @SuppressWarnings("unchecked")
     java.util.Map<Object, Object> m =
-        (java.util.Map<Object, Object>) newInstanceOf(effective(raw), java.util.LinkedHashMap.class);
+        (java.util.Map<Object, Object>) newInstanceOf(data, effective(raw), java.util.LinkedHashMap.class);
     for (int i = 0; i < n; i++) {
       try {
         m.put(build(data, k), build(data, v));
@@ -152,8 +170,15 @@ final class ObjectFactory
     return m;
   }
 
-  /** Instantiate {@code raw} if it is concrete, else the given fallback implementation. */
-  private static Object newInstanceOf(Class<?> raw, Class<?> fallback)
+  /**
+   * Instantiate {@code raw} if it is concrete, else the given fallback implementation.
+   *
+   * <p>The fallback is only ever used when it is assignable to {@code raw}. A concrete collection
+   * class without a no-arg constructor (StablePriorityQueue) used to get an ArrayList here, which
+   * reflection then rejected with "argument type mismatch" on both sides before the method body
+   * ran — scored as agreement, a false EQUIVALENT.
+   */
+  private static Object newInstanceOf(FuzzedDataProvider data, Class<?> raw, Class<?> fallback)
   {
     if (!raw.isInterface() && !Modifier.isAbstract(raw.getModifiers())) {
       try {
@@ -161,8 +186,17 @@ final class ObjectFactory
         c.setAccessible(true);
         return c.newInstance();
       } catch (Throwable e) {
-        // no usable no-arg constructor — fall through
+        // No usable no-arg constructor: try the class's other constructors
+        // (StablePriorityQueue(int initialCapacity), for instance).
+        Object v = viaConstructor(data, raw, 2);
+        if (v != null) {
+          return v;
+        }
       }
+    }
+    if (!raw.isAssignableFrom(fallback)) {
+      throw new Unbuildable("no instance of " + raw.getName() + " (fallback "
+          + fallback.getName() + " does not fit)");
     }
     try {
       return fallback.getDeclaredConstructor().newInstance();
@@ -178,6 +212,39 @@ final class ObjectFactory
    */
   static Object build(FuzzedDataProvider data, Class<?> t)
   {
+    Object v = buildOrNull(data, t, CTOR_DEPTH);
+    if (v != null) {
+      return v;
+    }
+    Class<?> target = effective(t);
+    if (isAbstractType(target)) {
+      throw new Unbuildable("no concrete subtype of " + target.getName());
+    }
+    throw new Unbuildable("neither autofuzz nor constructor synthesis built " + target.getName());
+  }
+
+  /**
+   * How many constructor/factory levels synthesis may nest. 2 was too shallow for a receiver whose
+   * constructor needs a project interface: WindowIdActivatedReservoir(String, SweepableReservoir,
+   * long) needs ForwardingReservoir(AbstractReservoir), which needs AbstractReservoir.newReservoir
+   * — three levels.
+   */
+  private static final int CTOR_DEPTH = Integer.getInteger("fuzz.ctorDepth", 3);
+
+  /**
+   * Every tier, applied at any nesting level: the receiver, a method argument, and a constructor
+   * parameter of either all go through here. Constructor parameters used to get only autofuzz and
+   * plain constructor synthesis, so a constructor taking a project interface (which autofuzz cannot
+   * implement and synthesis cannot instantiate) made the whole receiver unbuildable.
+   *
+   * <p>Returns null when nothing worked; {@link #build} turns that into {@link Unbuildable}.
+   */
+  private static Object buildOrNull(FuzzedDataProvider data, Class<?> t, int depth)
+  {
+    if (t.isArray()
+        && t.getComponentType() == javax.security.auth.callback.Callback.class) {
+      return buildCallbackArray(data, t.getComponentType());
+    }
     if (Scalars.isScalar(t)) {
       return Scalars.build(data, t);
     }
@@ -185,34 +252,114 @@ final class ObjectFactory
       return Scalars.buildArray(data, t.getComponentType(), data.consumeInt(0, 32));
     }
     Class<?> target = effective(t);
-    Object v = tryConsume(data, target);
+    Object v = viaRecipe(data, target);
     if (v != null) {
+      return v;
+    }
+    v = tryConsume(data, target);
+    if (v != null || depth <= 0) {
       return v;
     }
     // Autofuzz returned null: either this input starved, or it cannot construct the type at all.
     // If the type is abstract, substituting a concrete subtype is the only way forward.
-    if (target.isInterface() || Modifier.isAbstract(target.getModifiers())) {
-      Class<?> sub = concreteSubtypeOf(target);
-      if (sub != null) {
+    if (isAbstractType(target)) {
+      // Try each candidate in rank order: the first-ranked one may be unbuildable (a private
+      // constructor, a parameter nothing can supply) while the next one is fine.
+      for (Class<?> sub : concreteSubtypesOf(target)) {
         v = tryConsume(data, sub);
         if (v != null) {
           return v;
         }
-        v = viaConstructor(data, sub, 2);
+        v = viaConstructor(data, sub, depth);
         if (v != null) {
           return v;
         }
       }
-      throw new Unbuildable("no concrete subtype of " + target.getName());
+      // The subtypes found may only be reachable through the type's own factory: AbstractReservoir's
+      // implementations are private nested classes with private constructors, and the one public
+      // way in is the static AbstractReservoir.newReservoir(String, int).
+      return viaFactory(data, target, depth);
     }
     // Autofuzz is not a superset of the engine's original recursive constructor synthesis: it
     // returns null for classes that synthesis handles fine (SubscribeRequestTuple among them,
     // which regressed from EQUIVALENT to NEVER-RAN when autofuzz replaced it outright). Keep both.
-    v = viaConstructor(data, target, 2);
-    if (v != null) {
-      return v;
+    v = viaConstructor(data, target, depth);
+    return v != null ? v : viaFactory(data, target, depth);
+  }
+
+  /** A hand-written {@link fuzz.auto.recipes.Recipe} for this class, if one is registered. */
+  private static Object viaRecipe(FuzzedDataProvider data, Class<?> t)
+  {
+    fuzz.auto.recipes.Recipe r = fuzz.auto.recipes.Recipes.forClass(t.getName());
+    if (r == null) {
+      return null;
     }
-    throw new Unbuildable("neither autofuzz nor constructor synthesis built " + target.getName());
+    try {
+      Object v = r.build(data, t);
+      return t.isInstance(v) ? v : null;
+    } catch (Throwable e) {
+      return null; // fall back to the generic tiers
+    }
+  }
+
+  private static boolean isAbstractType(Class<?> t)
+  {
+    return t.isInterface() || Modifier.isAbstract(t.getModifiers());
+  }
+
+  /**
+   * Build {@code t} through a non-private static method declared on {@code t} that returns a
+   * {@code t}, fewest parameters first. Methods are sorted by parameter count then signature so
+   * both sides try them in the same order and consume the same bytes.
+   */
+  private static Object viaFactory(FuzzedDataProvider data, Class<?> t, int depth)
+  {
+    List<java.lang.reflect.Method> factories = new ArrayList<>();
+    for (java.lang.reflect.Method m : t.getDeclaredMethods()) {
+      int mod = m.getModifiers();
+      if (Modifier.isStatic(mod) && !Modifier.isPrivate(mod) && !m.isSynthetic()
+          && t.isAssignableFrom(m.getReturnType())) {
+        factories.add(m);
+      }
+    }
+    Collections.sort(factories, new Comparator<java.lang.reflect.Method>() {
+      @Override
+      public int compare(java.lang.reflect.Method a, java.lang.reflect.Method b) {
+        if (a.getParameterCount() != b.getParameterCount()) {
+          return Integer.compare(a.getParameterCount(), b.getParameterCount());
+        }
+        return a.toGenericString().compareTo(b.toGenericString());
+      }
+    });
+    for (java.lang.reflect.Method m : factories) {
+      Object[] args = buildArgs(data, m.getParameterTypes(), depth);
+      if (args == null) {
+        continue;
+      }
+      try {
+        m.setAccessible(true);
+        Object v = m.invoke(null, args);
+        if (t.isInstance(v)) {
+          return v;
+        }
+      } catch (Throwable e) {
+        // this factory rejected the input or is unreachable — try the next
+      }
+    }
+    return null;
+  }
+
+  /** Arguments for a constructor or factory, each one level deeper; null if any cannot be built. */
+  private static Object[] buildArgs(FuzzedDataProvider data, Class<?>[] pts, int depth)
+  {
+    Object[] args = new Object[pts.length];
+    for (int i = 0; i < pts.length; i++) {
+      args[i] = buildOrNull(data, pts[i], depth - 1);
+      if (args[i] == null) {
+        return null;
+      }
+    }
+    return args;
   }
 
   /**
@@ -241,24 +388,8 @@ final class ObjectFactory
       if (Modifier.isPrivate(c.getModifiers())) {
         continue;
       }
-      Class<?>[] pts = c.getParameterTypes();
-      Object[] args = new Object[pts.length];
-      boolean ok = true;
-      for (int i = 0; i < pts.length && ok; i++) {
-        if (Scalars.isScalar(pts[i])) {
-          args[i] = Scalars.build(data, pts[i]);
-        } else if (pts[i].isArray() && Scalars.isScalar(pts[i].getComponentType())) {
-          args[i] = Scalars.buildArray(data, pts[i].getComponentType(), data.consumeInt(0, 32));
-        } else {
-          Object sub = tryConsume(data, effective(pts[i]));
-          if (sub == null) {
-            sub = viaConstructor(data, effective(pts[i]), depth - 1);
-          }
-          args[i] = sub;
-          ok = sub != null;
-        }
-      }
-      if (!ok) {
+      Object[] args = buildArgs(data, c.getParameterTypes(), depth);
+      if (args == null) {
         continue;
       }
       try {
@@ -278,6 +409,9 @@ final class ObjectFactory
       return true;
     }
     Class<?> target = effective(t);
+    if (fuzz.auto.recipes.Recipes.forClass(target.getName()) != null) {
+      return true;                        // a hand-written recipe can build it
+    }
     if (target.isInterface() || Modifier.isAbstract(target.getModifiers())) {
       return concreteSubtypeOf(target) != null;
     }
@@ -308,9 +442,17 @@ final class ObjectFactory
 
   // ── concrete-subtype discovery ──────────────────────────────────────────────
 
+  /** The first-ranked concrete subtype of {@code t}, or null; see {@link #concreteSubtypesOf}. */
+  static Class<?> concreteSubtypeOf(Class<?> t)
+  {
+    List<Class<?>> subs = concreteSubtypesOf(t);
+    return subs.isEmpty() ? null : subs.get(0);
+  }
+
   /**
-   * Find a concrete, instantiable subtype of an abstract class or interface. Result is cached per
-   * type: the search is expensive and there are only a handful of abstract receivers per project.
+   * Find up to {@link #MAX_SUBTYPES} concrete, instantiable subtypes of an abstract class or
+   * interface, best first. Result is cached per type: the search is expensive and there are only a
+   * handful of abstract types per project.
    *
    * <p>Only a project type has project subtypes worth finding, and only its own side can supply
    * them: a subtype loaded anywhere else would not be assignable to it. So the candidates are the
@@ -320,24 +462,27 @@ final class ObjectFactory
    * same package first, then the shortest (plainest) name, which in practice picks the project's
    * straightforward implementation over test doubles and inner adapters.
    */
-  static Class<?> concreteSubtypeOf(Class<?> t)
+  static List<Class<?>> concreteSubtypesOf(Class<?> t)
   {
-    Class<?> cached = SUBTYPE.get(t);
+    List<Class<?>> cached = SUBTYPES.get(t);
     if (cached != null) {
-      return cached == NONE ? null : cached;
+      return cached;
     }
-    Class<?> found = null;
+    List<Class<?>> found = new ArrayList<>();
     if (t.getClassLoader() instanceof SideLoader) {
       SideLoader side = (SideLoader) t.getClassLoader();
       for (String name : candidates(t, side.classNames())) {
         Class<?> c = loadQuietly(name, side);
         if (c != null && isInstantiableSubtype(c, t)) {
-          found = c;
-          break;
+          found.add(c);
+          if (found.size() >= MAX_SUBTYPES) {
+            break;
+          }
         }
       }
     }
-    SUBTYPE.put(t, found == null ? NONE : found);
+    found = Collections.unmodifiableList(found);
+    SUBTYPES.put(t, found);
     return found;
   }
 

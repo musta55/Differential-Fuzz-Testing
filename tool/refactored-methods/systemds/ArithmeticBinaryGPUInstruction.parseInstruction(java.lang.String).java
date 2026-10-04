@@ -1,0 +1,44 @@
+public static ArithmeticBinaryGPUInstruction parseInstruction(String str) {
+    String[] parts = getInstructionParts(str);
+    InstructionUtils.checkNumFields(parts, 4);
+    String opcode = getOpcode(parts);
+    CPOperand in1 = getInputOperand(parts, 1);
+    CPOperand in2 = getInputOperand(parts, 2);
+    CPOperand out = getOutputOperand(parts);
+    DataType dt1 = in1.getDataType();
+    DataType dt2 = in2.getDataType();
+    DataType dt3 = out.getDataType();
+    Operator operator = getOperator(opcode, dt1, dt2);
+    return createInstruction(operator, in1, in2, out, opcode, str, dt1, dt2, dt3);
+}
+// ---- helper method(s) introduced by the refactoring ----
+private static String[] getInstructionParts(String str) {
+    return InstructionUtils.getInstructionPartsWithValueType(str);
+}
+
+private static String getOpcode(String[] parts) {
+    return parts[0];
+}
+
+private static CPOperand getInputOperand(String[] parts, int index) {
+    return new CPOperand(parts[index]);
+}
+
+private static CPOperand getOutputOperand(String[] parts) {
+    return new CPOperand(parts[3]);
+}
+
+private static Operator getOperator(String opcode, DataType dt1, DataType dt2) {
+    return (dt1 != dt2) ? InstructionUtils.parseScalarBinaryOperator(opcode, (dt1 == DataType.SCALAR)) : InstructionUtils.parseBinaryOperator(opcode);
+}
+
+private static ArithmeticBinaryGPUInstruction createInstruction(Operator operator, CPOperand in1, CPOperand in2, CPOperand out, String opcode, String str, DataType dt1, DataType dt2, DataType dt3) {
+    if (dt1 == DataType.MATRIX && dt2 == DataType.MATRIX && dt3 == DataType.MATRIX) {
+        return new MatrixMatrixArithmeticGPUInstruction(operator, in1, in2, out, opcode, str);
+    } else if (dt3 == DataType.MATRIX && ((dt1 == DataType.SCALAR && dt2 == DataType.MATRIX) || (dt1 == DataType.MATRIX && dt2 == DataType.SCALAR))) {
+        return new ScalarMatrixArithmeticGPUInstruction(operator, in1, in2, out, opcode, str);
+    } else {
+        throw new DMLRuntimeException("Unsupported GPU ArithmeticInstruction.");
+    }
+}
+

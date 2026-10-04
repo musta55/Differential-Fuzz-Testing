@@ -1,0 +1,28 @@
+protected DblArray getNextRow() {
+    _rl++;
+    final int indexOff = _rl * _numCols;
+    if (_isFirstRow) {
+        processFirstRow(indexOff);
+        _isFirstRow = false;
+    } else {
+        processSubsequentRow(indexOff);
+    }
+    return reusableReturn;
+}
+// ---- helper method(s) introduced by the refactoring ----
+private void processFirstRow(int indexOff) {
+    for (int i = 0; i < _colIndexes.size(); i++) {
+        final double val = _data[indexOff + _colIndexes.get(i)];
+        _previousRow[i] = val;
+        reusableArr[i] = val;
+    }
+}
+
+private void processSubsequentRow(int indexOff) {
+    for (int i = 0; i < _colIndexes.size(); i++) {
+        final double currentVal = _data[indexOff + _colIndexes.get(i)];
+        reusableArr[i] = currentVal - _previousRow[i];
+        _previousRow[i] = currentVal;
+    }
+}
+

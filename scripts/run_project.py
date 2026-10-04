@@ -362,6 +362,15 @@ def main(project, max_n, mode, report_name, keep_corpus, report_dir=None):
             res, reason = "EQUIVALENT", "-"
             why = f"no divergence found in {dur} of fuzzing"
             conf = confidence(bo, br)
+        elif "[ENGINE-ERROR]" in out:
+            # An exception escaped GenericDifferential itself (building arguments, digesting
+            # results) and Jazzer stopped the run. The engine names what was thrown, where, and
+            # through which engine step; keep that instead of a bare "harness error".
+            res, reason = "SKIP", "engine error"
+            em = re.search(r"\[ENGINE-ERROR\] [^:]+: (.+?) — a fault in the fuzzing engine", out)
+            why = (f"{em.group(1).strip()[:140]} — after {n_cmp} comparisons"
+                   if em else "engine error (see log)")
+            conf = "-"
         else:
             res, reason = "SKIP", "harness error"
             em = re.search(
@@ -445,6 +454,11 @@ def write_report(path, project, man, entries, classes, rows, counts, skip_reason
                                        "the same way on both sides",
                 "harness error": "missing class at runtime, inaccessible member, or a bad manifest "
                                  "entry",
+                "engine error": "an exception escaped the fuzzing engine itself (while building "
+                                "arguments or comparing results) and stopped the run; the Why "
+                                "column names the exception, where it was thrown and the engine "
+                                "step. A fault to fix in the engine, not a fact about the "
+                                "refactoring",
                 "sanitizer finding": "it *did* run on both sides without diverging, but a Jazzer "
                                      "sanitizer fired on the code itself — worth reading, not a "
                                      "differential result",

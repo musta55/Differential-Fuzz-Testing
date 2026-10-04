@@ -185,7 +185,15 @@ final class Digest
         return ((Enum<?>) a).name().equals(((Enum<?>) b).name());
       }
       if (a instanceof Class && b instanceof Class) {
-        return ((Class<?>) a).getName().equals(((Class<?>) b).getName());
+        Class<?> ca = (Class<?>) a;
+        Class<?> cb = (Class<?>) b;
+        // Proxy classes are numbered per class loader ($Proxy23 vs $Proxy28): compare what they
+        // implement instead.
+        if (java.lang.reflect.Proxy.isProxyClass(ca) && java.lang.reflect.Proxy.isProxyClass(cb)) {
+          return java.util.Arrays.toString(ca.getInterfaces())
+              .equals(java.util.Arrays.toString(cb.getInterfaces()));
+        }
+        return ca.getName().equals(cb.getName());
       }
       return java.util.Objects.equals(a, b);
     } catch (Throwable t) {
@@ -442,6 +450,12 @@ final class Digest
    */
   private static String name(Class<?> c)
   {
+    // Dynamic proxies (a recipe's stand-in for a project interface) are numbered per class loader,
+    // so the two sides get $Proxy5 and $Proxy6 for the same interface. Their content (the
+    // invocation handler) is still walked and compared.
+    if (java.lang.reflect.Proxy.isProxyClass(c)) {
+      return "$Proxy";
+    }
     String n;
     try {
       n = c.getSimpleName();

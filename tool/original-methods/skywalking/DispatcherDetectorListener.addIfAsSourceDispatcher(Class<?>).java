@@ -1,0 +1,1 @@
+void addIfAsSourceDispatcher(Class aClass) throws IllegalAccessException, InstantiationException;

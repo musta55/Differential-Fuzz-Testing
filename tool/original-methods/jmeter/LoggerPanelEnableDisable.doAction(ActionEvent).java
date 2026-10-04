@@ -1,0 +1,22 @@
+/**
+ * This method performs the actual command processing.
+ *
+ * @param e the generic UI action event
+ */
+@Override
+public void doAction(ActionEvent e) {
+    if (ActionNames.LOGGER_PANEL_ENABLE_DISABLE.equals(e.getActionCommand())) {
+        GuiPackage guiInstance = GuiPackage.getInstance();
+        JSplitPane splitPane = (JSplitPane) guiInstance.getLoggerPanel().getParent();
+        if (!guiInstance.getLoggerPanel().isVisible()) {
+            splitPane.setDividerSize(UIManager.getInt("SplitPane.dividerSize"));
+            guiInstance.getLoggerPanel().setVisible(true);
+            splitPane.setDividerLocation(0.8);
+            guiInstance.getMenuItemLoggerPanel().getModel().setSelected(true);
+        } else {
+            guiInstance.getLoggerPanel().setVisible(false);
+            splitPane.setDividerSize(0);
+            guiInstance.getMenuItemLoggerPanel().getModel().setSelected(false);
+        }
+    }
+}

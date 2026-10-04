@@ -1,0 +1,71 @@
+@Override
+public void run() {
+    //setup fair scheduler pool for worker thread, but avoid unnecessary
+    //spark context creation (if data cached already created)
+    int pool = -1;
+    if (OptimizerUtils.isSparkExecutionMode() && SparkExecutionContext.isSparkContextCreated()) {
+        SparkExecutionContext sec = (SparkExecutionContext) _ec;
+        pool = sec.setThreadLocalSchedulerPool();
+    }
+    // Initialize this GPUContext to this thread
+    if (DMLScript.USE_ACCELERATOR) {
+        try {
+            _ec.getGPUContext(0).initializeThread();
+        } catch (DMLRuntimeException e) {
+            LOG.error("Error executing task because of failure in GPU backend: ", e);
+            LOG.error("Stopping LocalParWorker.");
+            return;
+        }
+    }
+    //setup compiler config for worker thread
+    ConfigurationManager.setLocalConfig(_cconf);
+    // continuous execution (execute tasks until (1) stopped or (2) no more tasks)
+    Task lTask = null;
+    try {
+        while (!_stopped) {
+            //dequeue the next task (abort on NO_MORE_TASKS or error)
+            try {
+                lTask = _taskQueue.dequeueTask();
+                if (// task queue closed (no more tasks)
+                lTask == LocalTaskQueue.NO_MORE_TASKS)
+                    //normal end of parallel worker
+                    break;
+            } catch (Exception ex) {
+                // abort on taskqueue error
+                LOG.warn("Error reading from task queue: " + ex.getMessage());
+                LOG.warn("Stopping LocalParWorker.");
+                //no exception thrown to prevent blocking on join
+                break;
+            }
+            //execute the task sequentially (re-try on error)
+            boolean success = false;
+            int retrys = _max_retry;
+            while (!success) {
+                try {
+                    ///////
+                    //core execution (see ParWorker)
+                    executeTask(lTask);
+                    success = true;
+                } catch (Exception ex) {
+                    LOG.error("Failed to execute " + lTask.toString() + ", retry:" + retrys, ex);
+                    if (retrys > 0)
+                        //retry on task error
+                        retrys--;
+                    else {
+                        // abort on no remaining retrys
+                        LOG.error("Error executing task: ", ex);
+                        LOG.error("Stopping LocalParWorker.");
+                        //no exception thrown to prevent blocking on join
+                        break;
+                    }
+                }
+            }
+        }
+    } finally {
+        //cleanup fair scheduler pool for worker thread
+        if (OptimizerUtils.isSparkExecutionMode() && pool != -1) {
+            SparkExecutionContext sec = (SparkExecutionContext) _ec;
+            sec.cleanupThreadLocalSchedulerPool(pool);
+        }
+    }
+}

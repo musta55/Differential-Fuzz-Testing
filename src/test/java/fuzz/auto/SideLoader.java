@@ -153,7 +153,10 @@ final class SideLoader extends URLClassLoader
     return false;
   }
 
-  /** Every top-level class this side can load itself: its own directory, then the fat jar. */
+  /**
+   * Every named class this side can load itself (top-level and nested, e.g. {@code Outer$Inner}):
+   * its own directory, then the fat jar.
+   */
   synchronized List<String> classNames()
   {
     if (classNames == null) {
@@ -180,10 +183,30 @@ final class SideLoader extends URLClassLoader
       String name = child.getName();
       if (child.isDirectory()) {
         collectDirectory(child, packagePrefix + name + ".", out);
-      } else if (name.endsWith(".class") && name.indexOf('$') < 0) {
+      } else if (isNamedClassFile(name)) {
         out.add(packagePrefix + name.substring(0, name.length() - ".class".length()));
       }
     }
+  }
+
+  /**
+   * A class file of a top-level or nested class. Anonymous and local classes ({@code Outer$1},
+   * {@code Outer$1Local}) are left out: they can never be instantiated as a subtype, so loading
+   * them would be wasted work.
+   */
+  private static boolean isNamedClassFile(String fileName)
+  {
+    if (!fileName.endsWith(".class")) {
+      return false;
+    }
+    int i = fileName.indexOf('$');
+    while (i >= 0) {
+      if (i + 1 < fileName.length() && Character.isDigit(fileName.charAt(i + 1))) {
+        return false;
+      }
+      i = fileName.indexOf('$', i + 1);
+    }
+    return true;
   }
 
   private static void collectJar(File jar, List<String> out)
@@ -192,7 +215,7 @@ final class SideLoader extends URLClassLoader
       Enumeration<java.util.jar.JarEntry> entries = jf.entries();
       while (entries.hasMoreElements()) {
         String name = entries.nextElement().getName();
-        if (name.endsWith(".class") && name.indexOf('$') < 0 && !name.startsWith("META-INF/")) {
+        if (isNamedClassFile(name) && !name.startsWith("META-INF/")) {
           out.add(name.substring(0, name.length() - ".class".length()).replace('/', '.'));
         }
       }

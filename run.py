@@ -91,7 +91,8 @@ def main():
         setup = py("project_setup.py", args.project)
         for flag in ("original", "refactored", "build_args"):
             if getattr(args, flag):
-                setup += ["--" + flag.replace("_", "-"), getattr(args, flag)]
+                # setup += ["--" + flag.replace("_", "-"), getattr(args, flag)]
+                setup += [f"--{flag.replace('_', '-')}={getattr(args, flag)}"]
         step("0/6 build the target project + register its profile", setup)
 
     # Explicit trees win; otherwise the registry supplies them, and says how to register the
@@ -119,6 +120,7 @@ def main():
 
     if args.source_seeds:
         seed_argv += ["--source-seeds"]
+        print("Source Seeds Enabled")
     step("5/6 encode unit tests as fuzzer seeds", seed_argv)
 
     run_argv = py("run_project.py", args.project, "--report", args.report)

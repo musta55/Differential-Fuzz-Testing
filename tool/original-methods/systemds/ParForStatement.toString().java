@@ -1,0 +1,12 @@
+@Override
+public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("parfor ");
+    sb.append(_predicate.toString());
+    sb.append(" { \n");
+    for (StatementBlock block : _body) {
+        sb.append(block.toString());
+    }
+    sb.append("}\n");
+    return sb.toString();
+}

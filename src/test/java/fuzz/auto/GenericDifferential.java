@@ -1,6 +1,7 @@
 package fuzz.auto;
 
 import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.io.Reader;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -134,9 +135,58 @@ public final class GenericDifferential
     inputCount.incrementAndGet();
     try {
       runOnce(data, project, id);
+    } catch (AssertionError | Unsupported e) {
+      throw e; // a DIFFERENTIAL MISMATCH or a [SKIP]: the engine's own, intended outcomes
+    } catch (Throwable t) {
+      // The methods under test run inside invoke()/newInstanceOutcome(), which turn whatever they
+      // throw into an Outcome. Anything that reaches here therefore escaped the engine itself
+      // (building arguments, digesting results, reading the manifest), not the refactoring.
+      throw engineError(id, t);
     } finally {
       JazzerCoverage.collectAfterInput();
     }
+  }
+
+  /** Engine errors already reported, so a repeated failure prints one line. */
+  private static final java.util.Set<String> engineErrorsSeen =
+      java.util.Collections.synchronizedSet(new java.util.HashSet<String>());
+
+  /**
+   * Name an error that escaped the engine: what was thrown, where, and which engine step it came
+   * through. Jazzer reports only the harness line and surefire trims the rest, so without this a
+   * NullPointerException in PhysicalNode.hashCode() while ObjectFactory filled a Set read as a bare
+   * "NullPointerException at Auto_LeastBusy_distribute_FuzzTest.java:14".
+   */
+  private static EngineError engineError(String id, Throwable t)
+  {
+    StackTraceElement[] st = t.getStackTrace();
+    String origin = st.length > 0 ? frame(st[0]) : "unknown location";
+    String step = "unknown engine step";
+    for (StackTraceElement f : st) {
+      String c = f.getClassName();
+      if (c.startsWith("fuzz.auto.") && !c.substring(c.lastIndexOf('.') + 1).startsWith("Auto_")) {
+        step = frame(f);
+        break;
+      }
+    }
+    String msg = "[ENGINE-ERROR] " + id + ": " + t + " at " + origin + " (engine step: " + step
+        + ") — a fault in the fuzzing engine, not in the code under test";
+    if (engineErrorsSeen.add(msg)) {
+      System.out.println(msg);
+    }
+    return new EngineError(msg, t);
+  }
+
+  private static String frame(StackTraceElement f)
+  {
+    String c = f.getClassName();
+    return c.substring(c.lastIndexOf('.') + 1) + "." + f.getMethodName() + ":" + f.getLineNumber();
+  }
+
+  /** Wraps an error that escaped the engine, with {@link #engineError}'s message. */
+  private static final class EngineError extends RuntimeException
+  {
+    EngineError(String m, Throwable cause) { super(m, cause); }
   }
 
   private static void runOnce(FuzzedDataProvider data, String project, String id) throws Throwable
@@ -204,6 +254,11 @@ public final class GenericDifferential
     // nothing to do with (PhysicalNode.unblock, both sides returning true).
     boolean receiversStartedEqual = a.receiver != null && b.receiver != null
         && Digest.diff(a.receiver, b.receiver) == null;
+    // The same guard for the arguments, so a method's writes into them can be compared too.
+    boolean[] argsStartedEqual = new boolean[a.args.length];
+    for (int i = 0; i < a.args.length; i++) {
+      argsStartedEqual[i] = Digest.diff(a.args[i], b.args[i]) == null;
+    }
 
     Outcome o = invokeTimed(oM, a.receiver, a.args, oCls);
     Outcome r = invokeTimed(rM, b.receiver, b.args, rCls);
@@ -211,6 +266,9 @@ public final class GenericDifferential
     comparisonCount.incrementAndGet();
 
     String why = divergence(o, r, oM.getReturnType(), a.receiver, b.receiver, receiversStartedEqual);
+    if (why == null) {
+      why = argumentDivergence(o, r, a.args, b.args, argsStartedEqual);
+    }
     if (why != null) {
       Assertions.fail(String.format(
           "[DIFFERENTIAL MISMATCH] %s.%s/%d%n  reason    : %s%n  ctorArgs  : %s%n"
@@ -258,6 +316,7 @@ public final class GenericDifferential
     Object[] args = new Object[pts.length];
     for (int i = 0; i < pts.length; i++) {
       args[i] = ObjectFactory.build(p, pts[i]);
+      requireFits(args[i], m.getParameterTypes()[i]);
     }
     side.args = args;
     return side;
@@ -461,6 +520,8 @@ public final class GenericDifferential
 
   private static Outcome invoke(Method m, Object inst, Object[] args)
   {
+    PrintStream out = System.out;
+    PrintStream err = System.err;
     try {
       return new Outcome(m.invoke(inst, args), null);
     } catch (InvocationTargetException e) {
@@ -468,7 +529,20 @@ public final class GenericDifferential
       return new Outcome(null, describeThrown(c));
     } catch (Throwable t) {
       return new Outcome(null, describeThrown(t));
+    } finally {
+      restoreStreams(out, err);
     }
+  }
+
+  /**
+   * Put back System.out/err if the code under test replaced them. StreamingAppMaster.main wraps
+   * them in a logging proxy on every call: the engine's own [DIFF-STATS] and mismatch lines then
+   * vanished into log4j, and thousands of nested proxies overflowed the stack at exit.
+   */
+  private static void restoreStreams(PrintStream out, PrintStream err)
+  {
+    System.setOut(out);
+    System.setErr(err);
   }
 
   private static Outcome invokeTimed(final Method m, final Object inst, final Object[] args,
@@ -506,6 +580,31 @@ public final class GenericDifferential
   }
 
   // ── oracle ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Side effects on the arguments. A method that returns void and writes its result into an
+   * argument (DefaultCallbackHandler.processCallback calls namecb.setName(...)) was invisible to
+   * the oracle, which looked only at the exception, the return value and the receiver: a wrong
+   * value written into the argument still scored EQUIVALENT. Only arguments that started out
+   * equivalent are compared, for the same reason as the receiver.
+   */
+  private static String argumentDivergence(Outcome o, Outcome r, Object[] oArgs, Object[] rArgs,
+      boolean[] startedEqual)
+  {
+    if ("TIMEOUT".equals(o.exception) || "TIMEOUT".equals(r.exception)) {
+      return null; // a timed-out call may still be writing into its arguments
+    }
+    for (int i = 0; i < oArgs.length; i++) {
+      if (!startedEqual[i] || oArgs[i] == null || rArgs[i] == null) {
+        continue;
+      }
+      String d = Digest.diff(oArgs[i], rArgs[i]);
+      if (d != null) {
+        return "argument " + i + " after call: " + d;
+      }
+    }
+    return null;
+  }
 
   /**
    * Returns null when the two outcomes are equivalent, else a short reason naming what differed.
@@ -585,14 +684,25 @@ public final class GenericDifferential
    */
   private static void runCtor(byte[] seed, Spec s, Class<?> oCls, Class<?> rCls) throws Throwable
   {
+    Constructor<?> ocResolved = resolveCtor(oCls, s);
+    Constructor<?> rcResolved = resolveCtor(rCls, s);
     // An abstract class's constructor only ever runs as a subclass's super(...) call. newInstance
     // on it throws InstantiationException on BOTH sides before any constructor code executes, and
     // the comparison below scores two equal exceptions as agreement: every input, a false EQUIVALENT.
+    // So run it the way Java does: through a concrete subclass's constructor with the same
+    // parameters, the same subclass on both sides — the same substitution ObjectFactory makes for
+    // an abstract argument type.
     if (Modifier.isAbstract(oCls.getModifiers()) || Modifier.isAbstract(rCls.getModifiers())) {
-      skip(s, "abstract class: its constructor cannot be invoked directly");
+      Constructor<?>[] via = standInCtors(oCls, rCls, ocResolved.getParameterTypes());
+      if (via == null) {
+        skip(s, "abstract class with no concrete subclass constructor taking the same parameters");
+      }
+      ocResolved = via[0];
+      rcResolved = via[1];
+      announceVia(s, ocResolved);
     }
-    final Constructor<?> oc = resolveCtor(oCls, s);
-    final Constructor<?> rc = resolveCtor(rCls, s);
+    final Constructor<?> oc = ocResolved;
+    final Constructor<?> rc = rcResolved;
     oc.setAccessible(true);
     rc.setAccessible(true);
     for (Class<?> pt : oc.getParameterTypes()) {
@@ -608,6 +718,12 @@ public final class GenericDifferential
     } catch (ObjectFactory.Unbuildable e) {
       noteUnbuildable("constructor arguments", e);
       return; // transient
+    }
+    // As for methods: a constructor can write into its arguments (fill a passed-in collection,
+    // register itself with a passed-in object), so compare those that started out equivalent.
+    boolean[] argsStartedEqual = new boolean[argsA.length];
+    for (int i = 0; i < argsA.length; i++) {
+      argsStartedEqual[i] = Digest.diff(argsA[i], argsB[i]) == null;
     }
     // Outcome o = timed(() -> newInstanceOutcome(oc, argsA));
     Outcome o = timed(new Callable<Outcome>() {
@@ -637,11 +753,86 @@ public final class GenericDifferential
         why = "constructed state: " + d;
       }
     }
+    if (why == null) {
+      why = argumentDivergence(o, r, argsA, argsB, argsStartedEqual);
+    }
     if (why != null) {
       Assertions.fail(String.format(
           "[DIFFERENTIAL MISMATCH] %s.<init>/%d%n  reason    : %s%n  ctorArgs  : %s%n"
           + "  methodArgs: %s%n  original  : %s%n  refactored: %s",
           simple(s.original), s.arity, why, render(argsA), render(argsA), o, r));
+    }
+  }
+
+  /**
+   * A concrete subclass constructor on each side that reaches the abstract constructor under test:
+   * same subclass name on both sides, same parameter types (by name, since project types come from
+   * different loaders) as the abstract one. Candidates come ranked from
+   * {@link ObjectFactory#concreteSubtypesOf}, and a direct subclass is preferred, since its
+   * constructor is the one most likely to be a plain super(...) pass-through. Returns
+   * {original, refactored}, or null when no subclass fits.
+   */
+  private static Constructor<?>[] standInCtors(final Class<?> oCls, Class<?> rCls, Class<?>[] pts)
+  {
+    List<Class<?>> subs = new ArrayList<>(ObjectFactory.concreteSubtypesOf(oCls));
+    // Stable sort: rank order is kept within each group.
+    java.util.Collections.sort(subs, new java.util.Comparator<Class<?>>() {
+      @Override
+      public int compare(Class<?> a, Class<?> b) {
+        return Boolean.compare(a.getSuperclass() != oCls, b.getSuperclass() != oCls);
+      }
+    });
+    for (Class<?> oSub : subs) {
+      Class<?> rSub;
+      try {
+        rSub = Class.forName(oSub.getName(), false, rCls.getClassLoader());
+      } catch (Throwable e) {
+        continue; // this subclass does not exist on the refactored side
+      }
+      if (!rCls.isAssignableFrom(rSub) || Modifier.isAbstract(rSub.getModifiers())) {
+        continue;
+      }
+      Constructor<?> o = ctorTaking(oSub, pts);
+      Constructor<?> r = ctorTaking(rSub, pts);
+      if (o != null && r != null) {
+        return new Constructor<?>[] {o, r};
+      }
+    }
+    return null;
+  }
+
+  /** The non-private constructor of {@code c} whose parameter type names match {@code pts}. */
+  private static Constructor<?> ctorTaking(Class<?> c, Class<?>[] pts)
+  {
+    for (Constructor<?> k : c.getDeclaredConstructors()) {
+      if (k.isSynthetic() || Modifier.isPrivate(k.getModifiers())
+          || k.getParameterCount() != pts.length) {
+        continue;
+      }
+      Class<?>[] kts = k.getParameterTypes();
+      boolean same = true;
+      for (int i = 0; i < pts.length && same; i++) {
+        same = kts[i].getName().equals(pts[i].getName());
+      }
+      if (same) {
+        return k;
+      }
+    }
+    return null;
+  }
+
+  private static volatile boolean announcedVia = false;
+
+  /**
+   * Say once which subclass stood in, so a verdict on an abstract constructor is read as "tested
+   * through this subclass" — whose own constructor and overrides (parse(), say) ran as well.
+   */
+  private static void announceVia(Spec s, Constructor<?> c)
+  {
+    if (!announcedVia) {
+      announcedVia = true;
+      System.out.println("[CTOR-VIA] " + simple(s.original) + ".<init>/" + s.arity
+          + " tested through " + c.getDeclaringClass().getName());
     }
   }
 
@@ -654,10 +845,24 @@ public final class GenericDifferential
       Object[] args = new Object[pts.length];
       for (int i = 0; i < pts.length; i++) {
         args[i] = ObjectFactory.build(p, pts[i]);
+        requireFits(args[i], c.getParameterTypes()[i]);
       }
       return args;
     } finally {
       Thread.currentThread().setContextClassLoader(previous);
+    }
+  }
+
+  /**
+   * An argument of the wrong type makes reflection throw IllegalArgumentException ("argument type
+   * mismatch") on both sides before the body runs, and two equal exceptions score as agreement —
+   * a false EQUIVALENT. Reject it here so it is reported as unbuilt instead.
+   */
+  private static void requireFits(Object arg, Class<?> param)
+  {
+    if (arg != null && !param.isPrimitive() && !param.isInstance(arg)) {
+      throw new ObjectFactory.Unbuildable("built " + arg.getClass().getName()
+          + " for parameter " + param.getName());
     }
   }
 
@@ -696,6 +901,8 @@ public final class GenericDifferential
 
   private static Outcome newInstanceOutcome(Constructor<?> c, Object[] args)
   {
+    PrintStream out = System.out;
+    PrintStream err = System.err;
     try {
       return new Outcome(c.newInstance(args), null);
     } catch (InvocationTargetException e) {
@@ -703,6 +910,8 @@ public final class GenericDifferential
       return new Outcome(null, describeThrown(cause));
     } catch (Throwable t) {
       return new Outcome(null, describeThrown(t));
+    } finally {
+      restoreStreams(out, err);
     }
   }
 

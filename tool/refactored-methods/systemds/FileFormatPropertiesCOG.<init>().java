@@ -1,0 +1,3 @@
+public FileFormatPropertiesCOG() {
+    this("systemdscog");
+}
