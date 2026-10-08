@@ -27,6 +27,7 @@ Outputs:
                                            "sides" block that tells the engine where to load from
 """
 import csv
+import glob
 import json
 import os
 import re
@@ -50,6 +51,29 @@ BUILD_FILES = {"pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle"}
 # "/abs/path/Foo.java:12: error: cannot find symbol"
 JAVAC_ERROR = re.compile(r"^(/.+?\.java):(\d+): error: (.+)$", re.M)
 
+# Lombok's annotation processor, the only one javac may run here (see lombok_jar).
+LOMBOK_PROCESSOR = "lombok.launch.AnnotationProcessorHider$AnnotationProcessor"
+
+
+def lombok_jar(root, rels):
+    """The local Lombok jar when one of these files uses Lombok, else None.
+
+    Lombok writes code (getters, the `log` field, builders) while javac runs, so a file that uses
+    it only compiles with Lombok's processor switched on. Lombok is compile-only, so it is never
+    in the fat jar; Maven's local repository has it once the project has been built.
+    """
+    uses_lombok = False
+    for rel in rels:
+        with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as f:
+            if "import lombok" in f.read():
+                uses_lombok = True
+                break
+    if not uses_lombok:
+        return None
+    jars = sorted(glob.glob(os.path.expanduser(
+        "~/.m2/repository/org/projectlombok/lombok/*/lombok-*.jar")))
+    return jars[-1] if jars else None
+
 
 def is_test_source(rel):
     """Test code needs the project's test dependencies and is never what a refactoring targets."""
@@ -59,7 +83,8 @@ def is_test_source(rel):
 def walk_tree(root):
     """Yield every file under root as a '/'-separated path relative to it."""
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = sorted(d for d in dirnames if d != ".git")
+        # target/ is build output (e.g. skywalking's target/delombok copies of every source), never source
+        dirnames[:] = sorted(d for d in dirnames if d not in (".git", "target"))
         for name in sorted(filenames):
             yield os.path.relpath(os.path.join(dirpath, name), root).replace(os.sep, "/")
 
@@ -96,9 +121,15 @@ def run_javac(root, rels, out_dir, fatjar_classpath, java):
     cmd = ["javac", "-d", out_dir, "-encoding", "UTF-8",
            "-g",                          # debug info: JaCoCo needs it for line coverage
            "-nowarn", "-Xlint:-options",  # warnings are never a reason to drop a file
-           "-proc:none",                  # annotation processors in the fat jar must not run
            "-Xmaxerrs", "100000",         # javac stops at 100 errors by default
            "-source", java, "-target", java]
+    lombok = lombok_jar(root, rels)
+    if lombok:
+        # Run Lombok's processor and no other: the ones in the fat jar must still not run.
+        fatjar_classpath = fatjar_classpath + [lombok]
+        cmd += ["-processorpath", lombok, "-processor", LOMBOK_PROCESSOR]
+    else:
+        cmd += ["-proc:none"]             # annotation processors in the fat jar must not run
     if fatjar_classpath:
         # Everything a changed file refers to comes from the jar. An empty source path stops javac
         # from compiling a stray .java it finds on the class path instead. (i.e., all the .class files should come from fat jar)

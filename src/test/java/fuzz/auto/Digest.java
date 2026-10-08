@@ -62,6 +62,11 @@ final class Digest
     IGNORED_FIELD_NAMES.add("starttime");
     IGNORED_FIELD_NAMES.add("currenttime");
     IGNORED_FIELD_NAMES.add("lastupdate");
+    // Every ThreadLocal gets its own number when it is created (BatchedOperatorStats holds one).
+    IGNORED_FIELD_NAMES.add("threadLocalHashCode");
+    // A Throwable's raw call stack, recorded by the JVM when it is created. It includes the
+    // engine's own frames, which differ per side (GenericDifferential$3 vs $4).
+    IGNORED_FIELD_NAMES.add("backtrace");
     // Deliberately NOT ignored: "id". It is usually a meaningful value that a refactoring can
     // genuinely change, so suppressing it would hide real divergences. Only fields that differ
     // between two *identical* constructions belong on this list.

@@ -103,6 +103,8 @@ def main(project, orig_root, ref_root):
         relative_path = pair["relPath"]
         if "/src/test/" in "/" + relative_path:
             continue  # test code is not what a refactoring targets, and compile_sides skips it
+        if "/target/" in "/" + relative_path:
+            continue  # build output, not source (e.g. skywalking's target/delombok copies)
         className = pair["primaryType"]
         pkg = pair["package"]
         for method in pair["methods"]:

@@ -44,6 +44,7 @@ final class ObjectFactory
   /** A type autofuzz refuses raw; substitute a concrete implementation before asking. */
   private static final Map<Class<?>, Class<?>> CONCRETE = new HashMap<>();
 
+  /** Initialize the concrete type mappings. */
   static {
     CONCRETE.put(java.util.Collection.class, ArrayList.class);
     CONCRETE.put(java.util.List.class, ArrayList.class);
@@ -59,10 +60,8 @@ final class ObjectFactory
     CONCRETE.put(java.io.OutputStream.class, java.io.ByteArrayOutputStream.class);
     CONCRETE.put(java.io.Reader.class, java.io.StringReader.class);
     CONCRETE.put(java.io.Writer.class, java.io.StringWriter.class);
-    CONCRETE.put(java.io.DataInput.class, java.io.DataInputStream.class);
     CONCRETE.put(java.io.DataOutput.class, java.io.DataOutputStream.class);
-    CONCRETE.put(java.util.Comparator.class, java.text.Collator.class);
-  }
+    }
 
   /** Cache of abstract/interface type -> its ranked concrete subtypes (empty if none). */
   private static final Map<Class<?>, List<Class<?>>> SUBTYPES = new ConcurrentHashMap<>();
@@ -103,6 +102,11 @@ final class ObjectFactory
         return build(data, Object.class);
       }
       Class<?> raw = (Class<?>) pt.getRawType();
+      // A recipe wins, generic or not: StablePriorityQueue<? extends E> used to be filled as a plain
+      // collection, which could build a queue its own add() rejects (ClassCastException).
+      if (fuzz.auto.recipes.Recipes.forClass(raw.getName()) != null) {
+        return build(data, raw);
+      }
       java.lang.reflect.Type[] targs = pt.getActualTypeArguments();
       if (java.util.Map.class.isAssignableFrom(raw) && targs.length == 2) {
         return buildMap(data, raw, targs[0], targs[1]);
@@ -113,7 +117,8 @@ final class ObjectFactory
       return build(data, raw);
     }
     if (t instanceof java.lang.reflect.GenericArrayType) {
-      return build(data, Object[].class);
+      // Build the array with its real element type: Class<?>[] as a Class[], not an Object[].
+      return build(data, erasure(t));
     }
     if (t instanceof Class) {
       return build(data, (Class<?>) t);
@@ -121,6 +126,22 @@ final class ObjectFactory
     // A type variable (T) or wildcard has no concrete form here; String is the same stand-in
     // CONCRETE already uses for a bare Object.
     return build(data, String.class);
+  }
+
+  /** The plain class of a type: List<String> → List, Class<?>[] → Class[], T or ? → Object. */
+  private static Class<?> erasure(java.lang.reflect.Type t)
+  {
+    if (t instanceof Class) {
+      return (Class<?>) t;
+    }
+    if (t instanceof java.lang.reflect.ParameterizedType) {
+      return erasure(((java.lang.reflect.ParameterizedType) t).getRawType());
+    }
+    if (t instanceof java.lang.reflect.GenericArrayType) {
+      Class<?> component = erasure(((java.lang.reflect.GenericArrayType) t).getGenericComponentType());
+      return java.lang.reflect.Array.newInstance(component, 0).getClass();
+    }
+    return Object.class;
   }
 
   private static Object buildCallbackArray(FuzzedDataProvider data, Class<?> componentType)
@@ -218,9 +239,40 @@ final class ObjectFactory
     }
     Class<?> target = effective(t);
     if (isAbstractType(target)) {
-      throw new Unbuildable("no concrete subtype of " + target.getName());
+      throw new Unbuildable("no concrete subtype of " + target.getName() + lastTry());
     }
-    throw new Unbuildable("neither autofuzz nor constructor synthesis built " + target.getName());
+    throw new Unbuildable("neither autofuzz nor constructor synthesis built " + target.getName()
+        + lastTry());
+  }
+
+  /**
+   * The last constructor call that threw while building, e.g. "new Foo[-1] threw
+   * IllegalArgumentException: size must be > 0", so a failed build shows the values that caused
+   * it. Only for the engine's own constructor calls: autofuzz does not expose what it tried.
+   */
+  private static final ThreadLocal<String> lastFailure = new ThreadLocal<String>();
+
+  /** "; last try: ..." for a failure message, or "" when there is none. Read once, then cleared. */
+  private static String lastTry()
+  {
+    String f = lastFailure.get();
+    lastFailure.remove();
+    return f == null ? "" : "; last try: " + f;
+  }
+
+  private static String showArgs(Object[] args)
+  {
+    StringBuilder sb = new StringBuilder("[");
+    for (int i = 0; i < args.length; i++) {
+      String a;
+      try {
+        a = String.valueOf(args[i]);
+      } catch (Throwable e) {
+        a = "<" + args[i].getClass().getSimpleName() + ">";
+      }
+      sb.append(i > 0 ? ", " : "").append(a.length() > 60 ? a.substring(0, 60) + "..." : a);
+    }
+    return sb.append("]").toString();
   }
 
   /**
@@ -248,8 +300,28 @@ final class ObjectFactory
     if (Scalars.isScalar(t)) {
       return Scalars.build(data, t);
     }
+    if (t.isEnum()) {
+      // Pick a constant directly. Through autofuzz, an enum after arguments that used up the input
+      // was never built (YarnAppLauncherImpl.shutdownApp: 0 of 443); a used-up input reads as 0.
+      Object[] constants = t.getEnumConstants();
+      return constants.length == 0 ? null : constants[data.consumeInt(0, constants.length - 1)];
+    }
     if (t.isArray() && Scalars.isScalar(t.getComponentType())) {
       return Scalars.buildArray(data, t.getComponentType(), data.consumeInt(0, 32));
+    }
+    if (t.isArray()) {
+      // Any other array (an Object[], for toArray(T[])): build each element the same way, as the
+      // element type's stand-in (Object is built as String).
+      Class<?> comp = t.getComponentType();
+      Object arr = java.lang.reflect.Array.newInstance(comp, data.consumeInt(0, 8));
+      try {
+        for (int i = 0; i < java.lang.reflect.Array.getLength(arr); i++) {
+          java.lang.reflect.Array.set(arr, i, build(data, effective(comp)));
+        }
+      } catch (Unbuildable e) {
+        return null; // an element type nothing can build
+      }
+      return arr;
     }
     Class<?> target = effective(t);
     Object v = viaRecipe(data, target);
@@ -315,7 +387,15 @@ final class ObjectFactory
   private static Object viaFactory(FuzzedDataProvider data, Class<?> t, int depth)
   {
     List<java.lang.reflect.Method> factories = new ArrayList<>();
-    for (java.lang.reflect.Method m : t.getDeclaredMethods()) {
+    java.lang.reflect.Method[] methods;
+    try {
+      methods = t.getDeclaredMethods();
+    } catch (LinkageError e) {
+      // A method of t mentions a class missing from the class path (javax.el.ELResolver in
+      // deltaspike): listing them throws NoClassDefFoundError. No factory to use, not an engine error.
+      return null;
+    }
+    for (java.lang.reflect.Method m : methods) {
       int mod = m.getModifiers();
       if (Modifier.isStatic(mod) && !Modifier.isPrivate(mod) && !m.isSynthetic()
           && t.isAssignableFrom(m.getReturnType())) {
@@ -394,9 +474,17 @@ final class ObjectFactory
       }
       try {
         c.setAccessible(true); // may throw InaccessibleObjectException on a JPMS-closed package
-        return c.newInstance(args);
+        Object v = c.newInstance(args);
+        lastFailure.remove(); // built: an earlier failed try no longer explains anything
+        return v;
       } catch (Throwable e) {
-        continue; // this constructor rejected the input or is unreachable — try the next
+        // This constructor rejected the input or is unreachable — try the next. Keep what it was
+        // given and what it threw, for the failure message if nothing else works.
+        Throwable cause = e instanceof java.lang.reflect.InvocationTargetException
+            && e.getCause() != null ? e.getCause() : e;
+        lastFailure.set("new " + t.getSimpleName() + showArgs(args) + " threw "
+            + cause.getClass().getSimpleName() + ": " + cause.getMessage());
+        continue;
       }
     }
     return null;

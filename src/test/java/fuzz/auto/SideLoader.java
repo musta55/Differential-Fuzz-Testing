@@ -48,11 +48,21 @@ final class SideLoader extends URLClassLoader
   private final List<File> locations;
   private List<String> classNames;
 
+  /**
+   * True when this project's jar has the SLF4J API but no SLF4J backend (deltaspike). Then the
+   * API would come from the jar and the backend from the parent, two copies of the same SLF4J
+   * types, and creating any logger failed with a LinkageError. So SLF4J is taken entirely from
+   * the parent, like the JDK. A project that ships its own backend (apex-core) keeps its own.
+   */
+  private final boolean shareSlf4j;
+
   private SideLoader(String side, List<File> locations, ClassLoader parent)
   {
     super(toUrls(locations), parent);
     this.side = side;
     this.locations = locations;
+    this.shareSlf4j = findResource("org/slf4j/LoggerFactory.class") != null
+        && findResource("org/slf4j/impl/StaticLoggerBinder.class") == null;
   }
 
   /** The loader for one side of a project, created once from the manifest's "sides" block. */
@@ -97,7 +107,16 @@ final class SideLoader extends URLClassLoader
   /** Load and initialise a class of this side. */
   Class<?> load(String className) throws ClassNotFoundException
   {
-    return Class.forName(className, true, this);
+    // Static initialisers run here and may look classes up through the context loader (Hadoop's
+    // UserGroupInformation does), so it must point at this side, as it does for calls.
+    Thread current = Thread.currentThread();
+    ClassLoader previous = current.getContextClassLoader();
+    current.setContextClassLoader(this);
+    try {
+      return Class.forName(className, true, this);
+    } finally {
+      current.setContextClassLoader(previous);
+    }
   }
 
   @Override
@@ -143,8 +162,11 @@ final class SideLoader extends URLClassLoader
     return c;
   }
 
-  private static boolean isShared(String name)
+  private boolean isShared(String name)
   {
+    if (shareSlf4j && name.startsWith("org.slf4j.")) {
+      return true;
+    }
     for (String prefix : SHARED) {
       if (name.startsWith(prefix)) {
         return true;

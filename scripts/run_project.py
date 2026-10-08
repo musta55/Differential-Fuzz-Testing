@@ -3,7 +3,7 @@
 Fuzz every changed method of one project and report whether the refactoring preserved behaviour.
 
     run_project.py <project> [--max N] [--regression] [--report NAME] [--report-dir DIR]
-                             [--keep-corpus]
+                             [--keep-corpus] [--jobs N]
 
 For each method in the manifest: run its Jazzer harness (JAZZER_FUZZ=1, seeded from the EvoSuite
 corpus staged in target/seeds/<project>), classify the outcome, measure per-method coverage on BOTH
@@ -34,21 +34,24 @@ import subprocess
 import sys
 import time
 import csv
+from concurrent.futures import ThreadPoolExecutor
 
 MODULE = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 SEED_STAGING = "target/seeds"        # master corpus, written by fuzz.auto.SeedWriter
 SEED_INSTALL = "src/test/resources"  # where jazzer-junit looks, via the test classpath
 
-# Passed to the engine; fuzz.auto.JazzerCoverage writes one file per side next to it,
-# target/jazzer-cov-original.exec and target/jazzer-cov-refactored.exec (see side_exec).
-JAZZER_EXEC = "target/jazzer-cov.exec"
+# Every method gets its own coverage file and working directory, named after its id, so methods
+# can run in parallel without sharing a file. fuzz.auto.JazzerCoverage writes one file per side
+# next to the .exec path it is given: <id>-original.exec and <id>-refactored.exec (see side_exec).
+JAZZER_EXEC_DIR = "target/jazzer-cov"
+FUZZ_CWD_DIR = "target/fuzz-cwd"
 SIDES = ("original", "refactored")
 
 
-def side_exec(side):
-    """The coverage file JazzerCoverage writes for one side."""
-    return os.path.join(MODULE, JAZZER_EXEC.replace(".exec", f"-{side}.exec"))
+def side_exec(exe, side):
+    """The coverage file JazzerCoverage writes for one side, next to exe."""
+    return exe.replace(".exec", f"-{side}.exec")
 
 
 def cov_classpath():
@@ -99,16 +102,16 @@ def install_seeds(project):
 def clear_generated_corpus():
     """Delete the corpus libFuzzer carries over between runs.
 
-    Jazzer keeps the inputs it found interesting under target/fuzz-cwd/.cifuzz-corpus/ and reuses
+    Jazzer keeps the inputs it found interesting under target/fuzz-cwd/<id>/.cifuzz-corpus/ and reuses
     them next time, so a report would otherwise describe every run since the last clean rather than
     this one — and the seed corpus's contribution would be indistinguishable from what a previous
     run had already discovered. --keep-corpus opts into the compounding behaviour deliberately.
     """
-    corpus = os.path.join(MODULE, "target/fuzz-cwd/.cifuzz-corpus")
-    if os.path.isdir(corpus):
-        n = len(os.listdir(corpus))
+    corpora = glob.glob(os.path.join(MODULE, FUZZ_CWD_DIR, "**", ".cifuzz-corpus"), recursive=True)
+    for corpus in corpora:
         shutil.rmtree(corpus)
-        print(f"  corpus: cleared {n} carried-over directories")
+    if corpora:
+        print(f"  corpus: cleared {len(corpora)} carried-over directories")
 
 
 def harness_duration(project):
@@ -153,9 +156,9 @@ def instrumentation_filter(manifest):
     return ",".join(sorted(packages) + ["fuzz.auto.**"])
 
 
-def coverage(cp, side, classes_dir, simple_name, method, params):
+def coverage(cp, exe, side, classes_dir, simple_name, method, params):
     """(branch, line) for one method on one side, from this run's Jazzer dump for that side."""
-    exe = side_exec(side)
+    exe = side_exec(exe, side)
     if not os.path.exists(exe):
         return "n/a", "n/a"
     # CovReport matches the class exactly and picks the overload by parameter types. It used to
@@ -217,7 +220,7 @@ def signature(e):
     return f"{e['method']}({','.join(e.get('params', []))})"
 
 
-def main(project, max_n, mode, report_name, keep_corpus, report_dir=None):
+def main(project, max_n, mode, report_name, keep_corpus, report_dir=None, jobs=6):
     projkey = project.replace("-", "_")
     man = json.load(open(os.path.join(MODULE, "src/test/resources", project, "manifest.json")))
     if "sides" not in man:
@@ -234,6 +237,10 @@ def main(project, max_n, mode, report_name, keep_corpus, report_dir=None):
     if not keep_corpus:
         clear_generated_corpus()
     n_seeds = install_seeds(project)
+    # Compile, and copy the seeds just installed onto the class path, ONCE. Each method then runs
+    # only surefire:test, so parallel runs never compile at the same time and none repeats Maven's
+    # compile checks. Must come after install_seeds: Jazzer reads the seeds off the class path.
+    subprocess.run(["./mvnw", "-q", f"-P{project}", "test-compile"], cwd=MODULE, check=True)
 
     logdir = os.path.join(MODULE, "target/fuzz-logs", project)
     os.makedirs(logdir, exist_ok=True)
@@ -245,6 +252,9 @@ def main(project, max_n, mode, report_name, keep_corpus, report_dir=None):
         repdir = os.path.join(MODULE, repdir)
     os.makedirs(repdir, exist_ok=True)
     report = os.path.join(repdir, report_name)
+    # One input/output table per method, next to the report: <report name>-io/<id>.csv
+    io_dir = os.path.splitext(report)[0] + "-io"
+    os.makedirs(io_dir, exist_ok=True)
 
     env = dict(os.environ)
     if mode == "fuzz":
@@ -254,39 +264,50 @@ def main(project, max_n, mode, report_name, keep_corpus, report_dir=None):
 
     classes = sorted({e["original"].rsplit(".", 1)[0] + "." + e["source"]["class"]
                       if "source" in e else e["original"] for e in entries})
-    rows = []
     # Three verdicts only. Everything that is not a two-sided comparison with a definite answer is
     # SKIP, whatever the mechanism — the sub-reason is kept per row and totalled separately, so the
     # top line stays readable without discarding why a method could not be answered.
     counts = {k: 0 for k in ("EQUIVALENT", "DIVERGENT", "SKIP")}
     skip_reasons = {}
 
-    for i, e in enumerate(entries, 1):
+    def fuzz_one(i, e):
+        """Fuzz one method in its own JVM and return its report row. Runs in a worker thread."""
         harness = f"fuzz.auto.{projkey}.Auto_" + e["id"].replace(".", "_") + "_FuzzTest"
         log = os.path.join(logdir, e["id"].replace(".", "_") + ".log")
         osimple = e["original"].split(".")[-1]
         rsimple = e["refactored"].split(".")[-1]
-        print(f"  [{i}/{len(entries)}] {e['id']} ({e.get('kind','?')}) ...", end=" ", flush=True)
+        label = f"  [{i}/{len(entries)}] {e['id']} ({e.get('kind','?')}) ..."
 
         if not compiled(e, man):
-            counts["SKIP"] += 1
-            skip_reasons["not compiled"] = skip_reasons.get("not compiled", 0) + 1
-            print("SKIP (not compiled)")
-            rows.append({"id": e["id"], "kind": e.get("kind", "?"), "result": "SKIP",
-                         "reason": "not compiled", "runs": "-", "fails": 0,
-                         "inputs": 0, "cmp": 0,
-                         "bo": "n/a", "br": "n/a", "lo": "n/a", "lr": "n/a",
-                         "why": "class missing from target/sides — rerun scripts/compile_sides.py",
-                         "conf": "-", "sig": signature(e)})
-            continue
+            print(f"{label} SKIP (not compiled)", flush=True)
+            return {"id": e["id"], "kind": e.get("kind", "?"), "result": "SKIP",
+                    "reason": "not compiled", "runs": "-", "fails": 0,
+                    "inputs": 0, "cmp": 0,
+                    "bo": "n/a", "br": "n/a", "lo": "n/a", "lr": "n/a",
+                    "why": "class missing from target/sides — rerun scripts/compile_sides.py",
+                    "conf": "-", "sig": signature(e)}
 
-        exe = os.path.join(MODULE, JAZZER_EXEC)
+        # This method's own working directory and coverage file: nothing is shared with the
+        # methods running at the same time.
+        cwd = os.path.join(MODULE, FUZZ_CWD_DIR, e["id"])
+        os.makedirs(cwd, exist_ok=True)
+        exe = os.path.join(MODULE, JAZZER_EXEC_DIR, e["id"] + ".exec")
+        os.makedirs(os.path.dirname(exe), exist_ok=True)
         for side in SIDES:
-            if os.path.exists(side_exec(side)):
-                os.remove(side_exec(side))
-        argv = ["timeout", "240", "./mvnw", f"-P{project}", "test", f"-Dtest={harness}",
+            if os.path.exists(side_exec(exe, side)):
+                os.remove(side_exec(exe, side))
+        # This method's input/output table (fuzz.auto.IoLog): <report name>-io/<id>.csv
+        io = os.path.join(io_dir, e["id"] + ".csv")
+        if os.path.exists(io):
+            os.remove(io)
+        argv = ["timeout", "240", "./mvnw", f"-P{project}", "surefire:test", f"-Dtest={harness}",
                 "-Dsurefire.failIfNoSpecifiedTests=false", "-Dmaven.test.failure.ignore=true",
-                f"-Dfuzz.jvmArgs=-Dfuzz.jazzerCoverage={exe} -Djazzer.instrument={instrument}"]
+                f"-Dfuzz.cwd={cwd}",
+                # surefire's start-up files, under target/; a run deletes its folder when it ends,
+                # so a shared one would vanish under the methods still running.
+                f"-DtempDir=surefire-{e['id']}",
+                f"-Dfuzz.jvmArgs=-Dfuzz.jazzerCoverage={exe} -Djazzer.instrument={instrument} "
+                f"-Dfuzz.ioFile={io}"]
         with open(log, "w") as lf:
             r = subprocess.run(argv, cwd=MODULE, env=env, stdout=lf, stderr=subprocess.STDOUT)
             # print(r.stdout, end="", flush=True)
@@ -302,8 +323,8 @@ def main(project, max_n, mode, report_name, keep_corpus, report_dir=None):
         n_inputs = int(st.group(1)) if st else 0
         n_cmp = int(st.group(2)) if st else 0
         params = e.get("params", [])
-        bo, lo = coverage(cp, "original", man["sides"]["original"], osimple, e["method"], params)
-        br, lr = coverage(cp, "refactored", man["sides"]["refactored"], rsimple, e["method"], params)
+        bo, lo = coverage(cp, exe, "original", man["sides"]["original"], osimple, e["method"], params)
+        br, lr = coverage(cp, exe, "refactored", man["sides"]["refactored"], rsimple, e["method"], params)
 
         if "DIFFERENTIAL MISMATCH" in out:
             res = "DIVERGENT"
@@ -316,6 +337,17 @@ def main(project, max_n, mode, report_name, keep_corpus, report_dir=None):
                    if reason and om and rm else "mismatch (see log)")
             conf = "witnessed"
             reason = "-"
+        elif "[NULL-MISMATCH]" in out:
+            # Fuzzing found no difference, but calling with null in one object argument did (the
+            # engine's once-per-method null check). Real, but kept apart from the differences
+            # found on normal inputs.
+            res, reason = "DIVERGENT", "null input"
+            nm = re.search(r"\[NULL-MISMATCH\].*\n  null arg  : (.+)\n  reason    : (.+)\n"
+                           r".*\n  original  : (.+)\n  refactored: (.+)", out)
+            why = (f"**{nm.group(2).strip()}** — with null as argument {nm.group(1).strip()}: "
+                   f"original {nm.group(3).strip()[:34]}, refactored {nm.group(4).strip()[:34]}"
+                   if nm else "differs on a null argument (see log)")
+            conf = "witnessed"
         elif "[SKIP]" in out:
             sm = re.search(r"\[SKIP\].*?— (.+)", out)
             res, reason = "SKIP", "structurally untestable"
@@ -379,15 +411,22 @@ def main(project, max_n, mode, report_name, keep_corpus, report_dir=None):
             why = (em.group(1) if em else "harness error") + " — could not be tested"
             conf = "-"
 
-        counts[res] += 1
-        if res == "SKIP":
-            skip_reasons[reason] = skip_reasons.get(reason, 0) + 1
-        print(f"{res}{'' if reason == '-' else ' (' + reason + ')'}"
-              f"  ({n_cmp} comparisons, branch orig {bo} / ref {br})")
-        rows.append({"id": e["id"], "kind": e.get("kind", "?"), "result": res, "reason": reason,
-                     "runs": runs, "fails": fe, "inputs": n_inputs, "cmp": n_cmp,
-                     "bo": bo, "br": br, "lo": lo, "lr": lr, "why": why, "conf": conf,
-                     "sig": signature(e)})
+        print(f"{label} {res}{'' if reason == '-' else ' (' + reason + ')'}"
+              f"  ({n_cmp} comparisons, branch orig {bo} / ref {br})", flush=True)
+        return {"id": e["id"], "kind": e.get("kind", "?"), "result": res, "reason": reason,
+                "runs": runs, "fails": fe, "inputs": n_inputs, "cmp": n_cmp,
+                "bo": bo, "br": br, "lo": lo, "lr": lr, "why": why, "conf": conf,
+                "sig": signature(e)}
+
+    # Each method runs in its own JVM with its own files, so several run at once. pool.map keeps
+    # manifest order, so the report rows come out in the same order as a one-at-a-time run.
+    print(f"  fuzzing {len(entries)} methods, {jobs} at a time")
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
+        rows = list(pool.map(lambda ie: fuzz_one(*ie), enumerate(entries, 1)))
+    for row in rows:
+        counts[row["result"]] += 1
+        if row["result"] == "SKIP":
+            skip_reasons[row["reason"]] = skip_reasons.get(row["reason"], 0) + 1
 
     write_report(report, project, man, entries, classes, rows, counts, skip_reasons, dur, mode,
                  n_seeds, keep_corpus)
@@ -472,6 +511,11 @@ def write_report(path, project, man, entries, classes, rows, counts, skip_reason
                 "in the budget\". That is what the Confidence column is for — it reports how much "
                 "of the two versions the fuzzer actually reached, so an EQUIVALENT at 0/8 branches "
                 "can be told apart from one at 8/8.\n\n")
+        if any(row["reason"] == "null input" for row in rows):
+            r.write("> A DIVERGENT with reason **null input** differs only when one object "
+                    "argument is null (the engine checks that once per method; fuzzing itself "
+                    "never builds null). A real change in behaviour, but often a deliberate one, "
+                    "e.g. a null check that now throws a different exception.\n\n")
 
         r.write("## Per method\n\n")
         r.write("Coverage is **differential**: `orig` is the original class and `ref` the "
@@ -530,4 +574,5 @@ if __name__ == "__main__":
     md = "regression" if "--regression" in a else "fuzz"
     rn = a[a.index("--report") + 1] if "--report" in a else "auto-fuzz-report.md"
     rd = a[a.index("--report-dir") + 1] if "--report-dir" in a else None
-    main(proj, mx, md, rn, "--keep-corpus" in a, rd)
+    jb = int(a[a.index("--jobs") + 1]) if "--jobs" in a else 6
+    main(proj, mx, md, rn, "--keep-corpus" in a, rd, jb)

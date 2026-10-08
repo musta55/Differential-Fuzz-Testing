@@ -23,9 +23,11 @@ final class PathRecipe implements Recipe
   public Object build(FuzzedDataProvider data, Class<?> type) throws Exception
   {
     File file = new File(dir(), "f" + data.consumeInt(0, 9));
-    if (data.consumeInt(0, 7) == 0) {
-      file.delete(); // a missing file
-    } else {
+    // Always start from a fresh file. A previous input may have made it unwritable
+    // (FSUtil.setPermission); writing to it then failed, the engine fell back to a relative path,
+    // and that changed the permissions of the test's working directory instead.
+    file.delete();
+    if (data.consumeInt(0, 7) != 0) { // otherwise: a missing file
       try (FileOutputStream out = new FileOutputStream(file)) {
         out.write(data.consumeBytes(64));
       }

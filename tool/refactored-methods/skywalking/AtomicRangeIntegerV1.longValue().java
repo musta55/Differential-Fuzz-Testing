@@ -1,3 +1,0 @@
-public long longValue() {
-    return this.value.get();
-}

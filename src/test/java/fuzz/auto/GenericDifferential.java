@@ -99,6 +99,10 @@ public final class GenericDifferential
         new Runnable() {
           @Override
           public void run() {
+            if (nullMismatch != null) {
+              System.out.println(nullMismatch);
+            }
+            IoLog.write();
             System.out.println("[DIFF-STATS] inputs=" + inputCount.get()
                 + " comparisons=" + comparisonCount.get());
           }
@@ -189,6 +193,106 @@ public final class GenericDifferential
     EngineError(String m, Throwable cause) { super(m, cause); }
   }
 
+  // ── the null check ──────────────────────────────────────────────────────────
+
+  /**
+   * The fuzzer never builds null, yet null is a legal value for every object parameter, and a
+   * refactoring can change what it does (StablePriorityQueue.addAll: NullPointerException vs false).
+   * So once per method, both sides are also called with null in each object argument, one at a
+   * time. A difference found that way is not raised: it would stop the fuzzing, and a difference on
+   * normal inputs matters more. It is printed at exit as [NULL-MISMATCH], and the report shows it
+   * as DIVERGENT ("null input") only when the fuzzing found no other difference.
+   */
+  private static volatile boolean nullChecked = false;
+  private static volatile String nullMismatch = null;
+
+  private static void nullCheckMethod(byte[] seed, Spec s, Class<?> oCls, Class<?> rCls,
+      Method oM, Method rM)
+  {
+    Class<?>[] pts = oM.getParameterTypes();
+    for (int i = 0; i < pts.length && nullMismatch == null; i++) {
+      if (pts[i].isPrimitive()) {
+        continue;
+      }
+      Side a;
+      Side b;
+      try {
+        a = buildSide(seed, oCls, oM, s); // fresh sides: the normal call must not see this one
+        b = buildSide(seed, rCls, rM, s);
+      } catch (ObjectFactory.Unbuildable e) {
+        return;
+      }
+      a.args[i] = null;
+      b.args[i] = null;
+      boolean receiversStartedEqual = a.receiver != null && b.receiver != null
+          && Digest.diff(a.receiver, b.receiver) == null;
+      String receiverText = s.isStatic ? "(static)" : show(a.receiver);
+      String argsText = show(a.args);
+      Outcome o = invokeTimed(oM, a.receiver, a.args, oCls);
+      Outcome r = invokeTimed(rM, b.receiver, b.args, rCls);
+      String why = divergence(o, r, oM.getReturnType(), a.receiver, b.receiver,
+          receiversStartedEqual);
+      if (IoLog.ON) {
+        IoLog.add("null check", receiverText, IoLog.argTypes(oM.getGenericParameterTypes()),
+            argsText, outcomeText(o), outcomeText(r), IoLog.comparison(why, o, r));
+      }
+      if (why != null) {
+        nullMismatch = nullReport(simple(s.original) + "." + s.method + "/" + s.arity, i, pts[i],
+            why, a.args, o, r);
+      }
+    }
+  }
+
+  private static void nullCheckCtor(byte[] seed, Spec s, final Constructor<?> oc,
+      final Constructor<?> rc, Class<?> oCls, Class<?> rCls)
+  {
+    Class<?>[] pts = oc.getParameterTypes();
+    for (int i = 0; i < pts.length && nullMismatch == null; i++) {
+      if (pts[i].isPrimitive()) {
+        continue;
+      }
+      final Object[] argsA;
+      final Object[] argsB;
+      try {
+        argsA = buildCtorArgs(seed, oc);
+        argsB = buildCtorArgs(seed, rc);
+      } catch (ObjectFactory.Unbuildable e) {
+        return;
+      }
+      argsA[i] = null;
+      argsB[i] = null;
+      Outcome o = timed(new Callable<Outcome>() {
+        @Override
+        public Outcome call() throws Exception {
+          return newInstanceOutcome(oc, argsA);
+        }
+      }, oCls);
+      Outcome r = timed(new Callable<Outcome>() {
+        @Override
+        public Outcome call() throws Exception {
+          return newInstanceOutcome(rc, argsB);
+        }
+      }, rCls);
+      String why = ctorDivergence(o, r);
+      if (IoLog.ON) {
+        IoLog.add("null check", "(constructor)", IoLog.argTypes(oc.getGenericParameterTypes()),
+            show(argsA), outcomeText(o), outcomeText(r), IoLog.comparison(why, o, r));
+      }
+      if (why != null) {
+        nullMismatch = nullReport(simple(s.original) + ".<init>/" + s.arity, i, pts[i], why,
+            argsA, o, r);
+      }
+    }
+  }
+
+  private static String nullReport(String target, int i, Class<?> type, String why,
+      Object[] args, Outcome o, Outcome r)
+  {
+    return String.format("[NULL-MISMATCH] %s%n  null arg  : #%d (%s)%n  reason    : %s%n"
+        + "  methodArgs: %s%n  original  : %s%n  refactored: %s",
+        target, i, type.getSimpleName(), why, render(args), o, r);
+  }
+
   private static void runOnce(FuzzedDataProvider data, String project, String id) throws Throwable
   {
     Spec s = spec(project, id);
@@ -235,6 +339,11 @@ public final class GenericDifferential
       // Transient: autofuzz starved or the constructor it chose rejected this input. Structural
       // impossibility was already ruled out above, so try another input.
       noteUnbuildable("original", e);
+      if (IoLog.underCap()) {
+        IoLog.add(String.valueOf(inputCount.get()), "(not built)",
+            IoLog.argTypes(oM.getGenericParameterTypes()), inputBytes(seed), buildFailure(e),
+            "(not run)", "not compared: original failed to build");
+      }
       return;
     }
     try {
@@ -244,7 +353,17 @@ public final class GenericDifferential
       // thing worth knowing is WHICH version refused to be built — a refactored constructor that
       // now throws looks identical, in a merged handler, to an argument type nothing can make.
       noteUnbuildable("refactored", e);
+      if (IoLog.underCap()) {
+        IoLog.add(String.valueOf(inputCount.get()), s.isStatic ? "(static)" : show(a.receiver),
+            IoLog.argTypes(oM.getGenericParameterTypes()), show(a.args), "(built, not run)",
+            buildFailure(e), "not compared: refactored failed to build");
+      }
       return;
+    }
+
+    if (!nullChecked) {
+      nullChecked = true;
+      nullCheckMethod(seed, s, oCls, rCls, oM, rM);
     }
 
     // Snapshot receiver state BEFORE the call. Replaying identical bytes does not guarantee
@@ -260,6 +379,14 @@ public final class GenericDifferential
       argsStartedEqual[i] = Digest.diff(a.args[i], b.args[i]) == null;
     }
 
+    // The input as it was before the call (the call may change it), for the input/output table.
+    String receiverText = null;
+    String argsText = null;
+    if (IoLog.underCap()) {
+      receiverText = s.isStatic ? "(static)" : show(a.receiver);
+      argsText = show(a.args);
+    }
+
     Outcome o = invokeTimed(oM, a.receiver, a.args, oCls);
     Outcome r = invokeTimed(rM, b.receiver, b.args, rCls);
     announceRan();
@@ -268,6 +395,14 @@ public final class GenericDifferential
     String why = divergence(o, r, oM.getReturnType(), a.receiver, b.receiver, receiversStartedEqual);
     if (why == null) {
       why = argumentDivergence(o, r, a.args, b.args, argsStartedEqual);
+    }
+    if (receiverText != null || (IoLog.ON && why != null)) {
+      if (receiverText == null) { // past the row cap, but a difference is always kept
+        receiverText = (s.isStatic ? "(static)" : show(a.receiver)) + " (after call)";
+        argsText = show(a.args) + " (after call)";
+      }
+      IoLog.add(String.valueOf(inputCount.get()), receiverText, IoLog.argTypes(oM.getGenericParameterTypes()),
+          argsText, outcomeText(o), outcomeText(r), IoLog.comparison(why, o, r));
     }
     if (why != null) {
       Assertions.fail(String.format(
@@ -326,8 +461,8 @@ public final class GenericDifferential
   private static void requireConstructible(Class<?> cls, Spec s)
   {
     if (cls.isInterface() || Modifier.isAbstract(cls.getModifiers())) {
-      Class<?> sub = ObjectFactory.concreteSubtypeOf(cls);
-      if (sub == null) {
+      // The same check as for arguments: a recipe, or else a concrete subtype on the classpath.
+      if (!ObjectFactory.maybeBuildable(cls)) {
         skip(s, "abstract/interface receiver with no concrete subtype on the classpath");
       }
       return;
@@ -479,7 +614,7 @@ public final class GenericDifferential
 
   // ── invocation ──────────────────────────────────────────────────────────────
 
-  private static final class Outcome
+  static final class Outcome
   {
     final Object value;
     final String exception;
@@ -717,7 +852,16 @@ public final class GenericDifferential
       argsB = buildCtorArgs(seed, rc);
     } catch (ObjectFactory.Unbuildable e) {
       noteUnbuildable("constructor arguments", e);
+      if (IoLog.underCap()) {
+        IoLog.add(String.valueOf(inputCount.get()), "(constructor)",
+            IoLog.argTypes(oc.getGenericParameterTypes()), inputBytes(seed), buildFailure(e),
+            buildFailure(e), "not compared: arguments failed to build");
+      }
       return; // transient
+    }
+    if (!nullChecked) {
+      nullChecked = true;
+      nullCheckCtor(seed, s, oc, rc, oCls, rCls);
     }
     // As for methods: a constructor can write into its arguments (fill a passed-in collection,
     // register itself with a passed-in object), so compare those that started out equivalent.
@@ -725,6 +869,7 @@ public final class GenericDifferential
     for (int i = 0; i < argsA.length; i++) {
       argsStartedEqual[i] = Digest.diff(argsA[i], argsB[i]) == null;
     }
+    String argsText = IoLog.underCap() ? show(argsA) : null;
     // Outcome o = timed(() -> newInstanceOutcome(oc, argsA));
     Outcome o = timed(new Callable<Outcome>() {
     @Override
@@ -742,19 +887,16 @@ public final class GenericDifferential
     announceRan();
     comparisonCount.incrementAndGet();
 
-    String why = null;
-    if ("TIMEOUT".equals(o.exception) || "TIMEOUT".equals(r.exception)) {
-      why = null;
-    } else if (!Objects.equals(o.exception, r.exception)) {
-      why = "exception type";
-    } else if (!o.threw()) {
-      String d = Digest.diff(o.value, r.value);
-      if (d != null) {
-        why = "constructed state: " + d;
-      }
-    }
+    String why = ctorDivergence(o, r);
     if (why == null) {
       why = argumentDivergence(o, r, argsA, argsB, argsStartedEqual);
+    }
+    if (argsText != null || (IoLog.ON && why != null)) {
+      if (argsText == null) { // past the row cap, but a difference is always kept
+        argsText = show(argsA) + " (after call)";
+      }
+      IoLog.add(String.valueOf(inputCount.get()), "(constructor)", IoLog.argTypes(oc.getGenericParameterTypes()),
+          argsText, outcomeText(o), outcomeText(r), IoLog.comparison(why, o, r));
     }
     if (why != null) {
       Assertions.fail(String.format(
@@ -762,6 +904,24 @@ public final class GenericDifferential
           + "  methodArgs: %s%n  original  : %s%n  refactored: %s",
           simple(s.original), s.arity, why, render(argsA), render(argsA), o, r));
     }
+  }
+
+  /** How two constructor calls differ, or null: thrown exception type, then the built object. */
+  private static String ctorDivergence(Outcome o, Outcome r)
+  {
+    if ("TIMEOUT".equals(o.exception) || "TIMEOUT".equals(r.exception)) {
+      return null;
+    }
+    if (!Objects.equals(o.exception, r.exception)) {
+      return "exception type";
+    }
+    if (!o.threw()) {
+      String d = Digest.diff(o.value, r.value);
+      if (d != null) {
+        return "constructed state: " + d;
+      }
+    }
+    return null;
   }
 
   /**
@@ -920,6 +1080,60 @@ public final class GenericDifferential
   private static String simple(String fqn)
   {
     return fqn.substring(fqn.lastIndexOf('.') + 1);
+  }
+
+  /**
+   * A value for the input/output table: its own toString when its class has one, otherwise its
+   * fields (Digest), since "StablePriorityQueue@38be305c" says nothing about what was passed in.
+   */
+  private static String show(Object v)
+  {
+    if (v == null) {
+      return "null";
+    }
+    if (v instanceof Object[]) {
+      Object[] a = (Object[]) v;
+      StringBuilder sb = new StringBuilder("[");
+      for (int i = 0; i < a.length; i++) {
+        sb.append(i > 0 ? ", " : "").append(show(a[i]));
+      }
+      return sb.append("]").toString();
+    }
+    try {
+      if (v.getClass().isArray()
+          || v.getClass().getMethod("toString").getDeclaringClass() != Object.class) {
+        return render(v);
+      }
+      String d = Digest.of(v);
+      return escape(d.length() > 200 ? d.substring(0, 200) + "..." : d);
+    } catch (Throwable t) {
+      return render(v);
+    }
+  }
+
+  /**
+   * The raw fuzzer input, for a row whose receiver or arguments could not be built from it: no
+   * object exists then, so the bytes they were being decoded from are the actual input.
+   */
+  private static String inputBytes(byte[] seed)
+  {
+    StringBuilder sb = new StringBuilder("input bytes (").append(seed.length).append("):");
+    for (int i = 0; i < seed.length && i < 64; i++) {
+      sb.append(String.format(" %02x", seed[i] & 0xff));
+    }
+    return sb.append(seed.length > 64 ? " ..." : "").toString();
+  }
+
+  /** The table text for a side whose receiver or arguments could not be built. */
+  private static String buildFailure(Throwable e)
+  {
+    String m = String.valueOf(e.getMessage());
+    return "failed to build: " + escape(m.length() > 200 ? m.substring(0, 200) + "..." : m);
+  }
+
+  private static String outcomeText(Outcome o)
+  {
+    return o.threw() ? "throws " + o.exception : "returns " + show(o.value);
   }
 
   private static String render(Object v)

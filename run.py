@@ -69,8 +69,8 @@ def main():
                     help="smoke test: only the first N methods, and only the classes they live in "
                          "(this bound reaches step 4 too — generating EvoSuite suites for all of a "
                          "big project's classes used to dominate the runtime of a 5-method run)")
-    ap.add_argument("--jobs", type=int, default=8,
-                    help="EvoSuite classes to generate in parallel (default 8)")
+    ap.add_argument("--jobs", type=int, default=75,
+                    help="EvoSuite classes, and step 6's fuzzed methods, to run in parallel (default 75)")
     ap.add_argument("--skip-build", action="store_true", help="reuse the existing manifest")
     ap.add_argument("--skip-compile", action="store_true", help="reuse the compiled sides")
     ap.add_argument("--skip-unittests", action="store_true",
@@ -123,7 +123,7 @@ def main():
         print("Source Seeds Enabled")
     step("5/6 encode unit tests as fuzzer seeds", seed_argv)
 
-    run_argv = py("run_project.py", args.project, "--report", args.report)
+    run_argv = py("run_project.py", args.project, "--report", args.report, "--jobs", str(args.jobs))
     if args.max:
         run_argv += ["--max", str(args.max)]
     step("6/6 fuzz + differential coverage -> report", run_argv)

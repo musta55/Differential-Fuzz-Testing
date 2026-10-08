@@ -1,3 +1,0 @@
-public double doubleValue() {
-    return this.value.doubleValue();
-}

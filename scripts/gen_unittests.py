@@ -207,8 +207,8 @@ def main():
     reason = version_mismatch(classes, java, classes_dir)
     if reason:
         print(f"SKIPPING EvoSuite for {args.project}: {reason}")
-        print("  no suites will be generated; scripts/gen_seeds.py will mine seeds from the "
-              "original sources instead.")
+        print("  no suites will be generated; the fuzzer starts unseeded unless "
+              "--source-seeds is passed, which mines seeds from the original sources.")
         with open(os.path.join(base, "generation.json"), "w") as f:
             json.dump({"project": args.project, "side": args.side, "budget": args.budget,
                        "status": "skipped", "reason": reason, "classes": []}, f, indent=2)

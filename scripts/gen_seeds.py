@@ -19,6 +19,7 @@ import argparse
 import glob
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -89,6 +90,11 @@ def main():
     # source between runs, which is precisely the comparison this records exist to protect.
     suites = glob.glob(os.path.join(base, "evosuite-tests", "**", "*_ESTest.java"), recursive=True)
     skipped = generation_skipped(base)
+
+    # Start from an empty staging folder, so seeds left over from an earlier run are never fuzzed.
+    staging = os.path.join(MODULE, "target/seeds", args.project)
+    shutil.rmtree(staging, ignore_errors=True)
+
     if args.source_seeds:
         source, script = "source-literals", "scripts/source_seeds.py"
         print(f"mining seeds from the {args.project} sources (requested)")
@@ -121,7 +127,6 @@ def main():
         print("no constants extracted; nothing to seed")
         return 0
 
-    staging = os.path.join(MODULE, "target/seeds", args.project)
     # SeedWriter lays out <root>/fuzz/auto/<projkey>/... , the same shape the test-resources root
     # has, so staging can be copied verbatim onto src/test/resources at install time.
     r = subprocess.run(["java", "-cp", classpath(args.project), "fuzz.auto.SeedWriter",
