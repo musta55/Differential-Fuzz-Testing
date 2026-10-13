@@ -501,9 +501,11 @@ final class SeedRecorder implements FuzzedDataProvider
   @Override
   public int remainingBytes()
   {
-    // Must look inexhaustible: ObjectFactory and autofuzz treat a low count as a starved input and
-    // bail out, which would truncate the very seed being recorded.
-    return Integer.MAX_VALUE;
+    // Must look plentiful: ObjectFactory and autofuzz treat a low count as a starved input and
+    // bail out, which would truncate the very seed being recorded. But not Integer.MAX_VALUE:
+    // autofuzz sizes an array as remainingBytes() / 2, so that built billion-element arrays
+    // (25 GB, a jmeter seed shard that never finished). Replay checks every seed anyway.
+    return 1024;
   }
 
   /**

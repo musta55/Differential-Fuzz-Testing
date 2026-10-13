@@ -34,6 +34,7 @@ import subprocess
 import sys
 import time
 import csv
+import projects
 from concurrent.futures import ThreadPoolExecutor
 
 MODULE = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -51,7 +52,9 @@ SIDES = ("original", "refactored")
 
 def side_exec(exe, side):
     """The coverage file JazzerCoverage writes for one side, next to exe."""
-    return exe.replace(".exec", f"-{side}.exec")
+    # Only the file suffix: replace(".exec", ...) also rewrote the ".exec" inside a method name
+    # ("CharFunction.execute.exec"), so every execute* method got no coverage file and read n/a.
+    return exe[:-len(".exec")] + f"-{side}.exec"
 
 
 def cov_classpath():
@@ -112,6 +115,12 @@ def clear_generated_corpus():
         shutil.rmtree(corpus)
     if corpora:
         print(f"  corpus: cleared {len(corpora)} carried-over directories")
+
+
+def seconds(duration):
+    """'30s', '1m', '2m30s' -> seconds; 0 when it cannot be read."""
+    units = {"s": 1, "m": 60, "h": 3600}
+    return sum(int(n) * units[u] for n, u in re.findall(r"(\d+)([smh])", str(duration)))
 
 
 def harness_duration(project):
@@ -227,6 +236,11 @@ def main(project, max_n, mode, report_name, keep_corpus, report_dir=None, jobs=6
         sys.exit(f"the {project} manifest has no compiled sides — run scripts/compile_sides.py first")
     entries = man["methods"][:max_n] if max_n else man["methods"]
     dur = harness_duration(project)
+    # How long one method's run may take before it is killed: fuzzing time plus generous room for
+    # start-up, which is slow for a big jar (openmeetings) with many methods running at once. A
+    # fixed 240s killed most of openmeetings' 30s runs before they could report anything.
+    call_timeout = 300 + 10 * seconds(dur)
+    extra_flags = " ".join(projects.jvm_flags())  # e.g. the Vector API module on Java 16+
     cp = cov_classpath()
     os.makedirs(f"{MODULE}/target/covtool", exist_ok=True)
     r = subprocess.run(["javac", "-cp", cp.split(":")[1] if ":" in cp else cp,
@@ -291,6 +305,9 @@ def main(project, max_n, mode, report_name, keep_corpus, report_dir=None, jobs=6
         # methods running at the same time.
         cwd = os.path.join(MODULE, FUZZ_CWD_DIR, e["id"])
         os.makedirs(cwd, exist_ok=True)
+        # The code under test may have locked its own folder in an earlier run
+        # (FSUtil.copyToLocalFileSystem chmods its destination), and then this run could not start.
+        subprocess.run(["chmod", "-R", "u+rwX", cwd])
         exe = os.path.join(MODULE, JAZZER_EXEC_DIR, e["id"] + ".exec")
         os.makedirs(os.path.dirname(exe), exist_ok=True)
         for side in SIDES:
@@ -300,14 +317,14 @@ def main(project, max_n, mode, report_name, keep_corpus, report_dir=None, jobs=6
         io = os.path.join(io_dir, e["id"] + ".csv")
         if os.path.exists(io):
             os.remove(io)
-        argv = ["timeout", "240", "./mvnw", f"-P{project}", "surefire:test", f"-Dtest={harness}",
+        argv = ["timeout", str(call_timeout), "./mvnw", f"-P{project}", "surefire:test", f"-Dtest={harness}",
                 "-Dsurefire.failIfNoSpecifiedTests=false", "-Dmaven.test.failure.ignore=true",
                 f"-Dfuzz.cwd={cwd}",
                 # surefire's start-up files, under target/; a run deletes its folder when it ends,
                 # so a shared one would vanish under the methods still running.
                 f"-DtempDir=surefire-{e['id']}",
                 f"-Dfuzz.jvmArgs=-Dfuzz.jazzerCoverage={exe} -Djazzer.instrument={instrument} "
-                f"-Dfuzz.ioFile={io}"]
+                f"-Dfuzz.ioFile={io} {extra_flags}".rstrip()]
         with open(log, "w") as lf:
             r = subprocess.run(argv, cwd=MODULE, env=env, stdout=lf, stderr=subprocess.STDOUT)
             # print(r.stdout, end="", flush=True)
@@ -348,10 +365,19 @@ def main(project, max_n, mode, report_name, keep_corpus, report_dir=None, jobs=6
                    f"original {nm.group(3).strip()[:34]}, refactored {nm.group(4).strip()[:34]}"
                    if nm else "differs on a null argument (see log)")
             conf = "witnessed"
+        elif r.returncode == 124:
+            # `timeout` killed the run: it never reported, so nothing is known about the method.
+            res, reason = "SKIP", "timed out"
+            why = (f"killed after {call_timeout}s, the time limit for one method's run "
+                   f"({n_cmp} comparisons by then)")
+            conf = "-"
         elif "[SKIP]" in out:
             sm = re.search(r"\[SKIP\].*?— (.+)", out)
             res, reason = "SKIP", "structurally untestable"
             why = sm.group(1).strip()[:80] if sm else "receiver not constructible"
+            if why.startswith("nondeterministic"):
+                reason = "nondeterministic"
+                why = sm.group(1).strip()  # in full: the two values that differ are at the end
             conf = "-"
         elif "com.code_intelligence.jazzer.api.FuzzerSecurityIssue" in out:
             # A Jazzer sanitizer fired (reflective call / SSRF / ReDoS ...). The method DID run on
@@ -362,6 +388,13 @@ def main(project, max_n, mode, report_name, keep_corpus, report_dir=None, jobs=6
             why = ("ran on both sides without diverging, but a Jazzer sanitizer fired on the code "
                    f"itself ({'/'.join(sm) or '?'}): {tm.group(1).strip()[:50] if tm else 'see log'}")
             conf = confidence(bo, br)
+        elif "The forked VM terminated without properly saying goodbye" in out:
+            # The code under test ended the JVM itself (System.exit, or a crash), which also ends
+            # the fuzzer running in it, so the two sides cannot be compared in this JVM.
+            res, reason = "SKIP", "JVM terminated"
+            why = (f"the method ended the JVM (System.exit or a crash) after {n_inputs} input(s), "
+                   f"{n_cmp} compared on both sides")
+            conf = "-"
         elif m and fe == 0 and "[DIFF-RAN]" not in out:
             # The harness "passed" without ever invoking both sides: every iteration bailed because
             # a receiver or argument could not be built. Reporting that as EQUIVALENT would be a
@@ -484,7 +517,14 @@ def write_report(path, project, man, entries, classes, rows, counts, skip_reason
                              "This is **not** equivalence",
                 "structurally untestable": "no input could ever work: an abstract receiver with no "
                                            "concrete subtype, or a parameter type nothing can build",
+                "nondeterministic": "a difference was found, but the ORIGINAL run twice on the same "
+                                    "input also disagreed with itself (clock, random value or "
+                                    "identity), so the difference says nothing about the refactoring",
                 "not compiled": "the class is missing from target/sides; rerun compile_sides.py",
+                "JVM terminated": "the code under test ended the JVM (it calls System.exit, or it "
+                                  "crashed it); the fuzzer runs in that same JVM, so the run "
+                                  "stopped there. A limitation of in-process testing, not "
+                                  "equivalence",
                 "run did not finish": "the JVM ended before the engine reported how many inputs "
                                       "it compared (a System.exit or crash in the code under "
                                       "test), so the amount of testing is unknown",
@@ -493,6 +533,8 @@ def write_report(path, project, man, entries, classes, rows, counts, skip_reason
                                        "the same way on both sides",
                 "harness error": "missing class at runtime, inaccessible member, or a bad manifest "
                                  "entry",
+                "timed out": "the run was killed at its time limit before it reported, usually "
+                             "because start-up was slow under load; rerun with fewer --jobs",
                 "engine error": "an exception escaped the fuzzing engine itself (while building "
                                 "arguments or comparing results) and stopped the run; the Why "
                                 "column names the exception, where it was thrown and the engine "

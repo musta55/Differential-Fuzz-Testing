@@ -27,7 +27,7 @@ import com.google.gson.JsonParser;
  *
  * <pre>
  *   java -cp target/test-classes:&lt;deps&gt; fuzz.auto.SeedWriter \
- *        &lt;project&gt; &lt;seed-values.json&gt; &lt;test-resources-root&gt;
+ *        &lt;project&gt; &lt;seed-values.json&gt; &lt;test-resources-root&gt; [&lt;shard&gt; &lt;shards&gt;]
  * </pre>
  *
  * <p>Seeds are written where Jazzer's JUnit integration looks for them — the resource directory
@@ -74,13 +74,19 @@ public final class SeedWriter
   public static void main(String[] args) throws Exception
   {
     if (args.length < 3) {
-      System.err.println("usage: SeedWriter <project> <seed-values.json> <test-resources-root>");
+      System.err.println("usage: SeedWriter <project> <seed-values.json> <test-resources-root>"
+          + " [<shard> <shards>]");
       System.exit(2);
     }
     String project = args[0];
     Path values = Paths.get(args[1]);
     Path root = Paths.get(args[2]);
     String projkey = project.replace('-', '_');
+    // Optional: this process handles only every <shards>-th method, starting at <shard>, so
+    // gen_seeds.py can run several processes side by side. A method's seeds do not depend on the
+    // methods before it, so the split changes nothing in what is written.
+    int shard = args.length >= 5 ? Integer.parseInt(args[3]) : 0;
+    int shards = args.length >= 5 ? Integer.parseInt(args[4]) : 1;
 
     JsonObject byId;
     try (Reader r = Files.newBufferedReader(values)) {
@@ -92,7 +98,11 @@ public final class SeedWriter
     int rejected = 0;
     List<String> failures = new ArrayList<>();
 
+    int index = 0;
     for (Map.Entry<String, JsonElement> e : byId.entrySet()) {
+      if (index++ % shards != shard) {
+        continue; // another process writes this method's seeds
+      }
       String id = e.getKey();
       Path dir = root.resolve(String.format("fuzz/auto/%s/Auto_%s_FuzzTestInputs/differential",
           projkey, id.replace('.', '_')));
@@ -140,10 +150,15 @@ public final class SeedWriter
       }
     }
     // Machine-readable summary so run.py can report seeding without re-parsing stdout.
-    try (FileWriter w = new FileWriter(new File(values.getParent().toFile(), "seed-write.json"))) {
+    // A shard writes its own seed-write-<shard>.json; gen_seeds.py adds them up into seed-write.json.
+    String summary = shards > 1 ? "seed-write-" + shard + ".json" : "seed-write.json";
+    try (FileWriter w = new FileWriter(new File(values.getParent().toFile(), summary))) {
       w.write(String.format("{\"project\":\"%s\",\"seeds\":%d,\"methods\":%d,\"rejected\":%d}%n",
           project, written, methods, rejected));
     }
+    // Exit explicitly: building objects can start non-daemon threads (jmeter's GUI classes start
+    // the Swing event thread), which would keep this JVM alive forever after the work is done.
+    System.exit(0);
   }
 
   // ── recording + verification ────────────────────────────────────────────────

@@ -43,7 +43,7 @@ public final class CovReport
         if (!methodFilter.isEmpty() && !m.getName().equals(methodFilter)) {
           continue;
         }
-        if (wantParams != null && !wantParams.equals(descriptorParams(m.getDesc()))) {
+        if (wantParams != null && !sameParams(wantParams, descriptorParams(m.getDesc()))) {
           continue;
         }
         ICounter br = m.getBranchCounter();
@@ -53,6 +53,28 @@ public final class CovReport
             + " line=" + ln.getCoveredCount() + "/" + ln.getTotalCount());
       }
     }
+  }
+
+  /**
+   * Source and bytecode parameter types agree. A source type variable (R, T, K, V...) is erased in
+   * the bytecode to its bound (bindToRequest(R, Object) is bindToRequest(HttpRequest, Object)), so it
+   * matches whatever type sits in its position, as long as both are arrays or both are not.
+   */
+  private static boolean sameParams(List<String> source, List<String> bytecode)
+  {
+    if (source.size() != bytecode.size()) {
+      return false;
+    }
+    for (int i = 0; i < source.size(); i++) {
+      String s = source.get(i);
+      String b = bytecode.get(i);
+      String base = s.replace("[]", "");
+      boolean typeVariable = base.matches("[A-Z][A-Z0-9]?");
+      if (!s.equals(b) && !(typeVariable && s.endsWith("[]") == b.endsWith("[]"))) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /** "java.util.List<String>;int..." -> [List, int[]]: generics erased, package dropped. */

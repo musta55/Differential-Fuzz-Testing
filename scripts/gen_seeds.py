@@ -23,6 +23,8 @@ import shutil
 import subprocess
 import sys
 
+import projects
+
 MODULE = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
@@ -74,6 +76,9 @@ def main():
     ap.add_argument("--source-seeds", action="store_true",
                     help="mine seeds from the project sources instead of using EvoSuite's; the "
                          "only way to seed a project EvoSuite cannot run on")
+    ap.add_argument("--jobs", type=int, default=8,
+                    help="SeedWriter processes run side by side, each writing every N-th "
+                         "method's seeds (default 8)")
     args = ap.parse_args()
 
     ensure_compiled(args.project)
@@ -129,11 +134,31 @@ def main():
 
     # SeedWriter lays out <root>/fuzz/auto/<projkey>/... , the same shape the test-resources root
     # has, so staging can be copied verbatim onto src/test/resources at install time.
-    r = subprocess.run(["java", "-cp", classpath(args.project), "fuzz.auto.SeedWriter",
-                        args.project, values, staging], cwd=MODULE)
-    # print(r.stdout, end="", flush=True)
-    if r.returncode != 0:
-        return r.returncode
+    # Several SeedWriter processes, each handling every N-th method: most of the time goes to
+    # autofuzz scanning the classpath, one method after another, so one process left the
+    # machine idle. A method's seeds do not depend on the other methods, so the output is the same.
+    jobs = max(1, args.jobs)
+    cp = classpath(args.project)
+    procs = [subprocess.Popen(["java", *projects.jvm_flags(), "-cp", cp, "fuzz.auto.SeedWriter",
+                               args.project, values, staging, str(k), str(jobs)], cwd=MODULE)
+             for k in range(jobs)]
+    codes = [p.wait() for p in procs]
+    if any(codes):
+        return next(c for c in codes if c)
+    if jobs > 1:
+        # Add the shards' summaries up into the one seed-write.json run.py reads.
+        total = {"project": args.project, "seeds": 0, "methods": 0, "rejected": 0}
+        for k in range(jobs):
+            part = os.path.join(base, f"seed-write-{k}.json")
+            with open(part) as f:
+                one = json.load(f)
+            for key in ("seeds", "methods", "rejected"):
+                total[key] += one[key]
+            os.remove(part)
+        with open(os.path.join(base, "seed-write.json"), "w") as f:
+            json.dump(total, f)
+        print(f"\nwrote {total['seeds']} seeds for {total['methods']} methods "
+              f"({total['rejected']} candidates rejected by verification)")
     n = sum(len(fs) for _, _, fs in os.walk(staging))
     print(f"staged {n} seed files in {os.path.relpath(staging, MODULE)} (source: {source})")
     return 0

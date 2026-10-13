@@ -228,6 +228,7 @@ public final class GenericDifferential
           && Digest.diff(a.receiver, b.receiver) == null;
       String receiverText = s.isStatic ? "(static)" : show(a.receiver);
       String argsText = show(a.args);
+      showToo(b); // same treatment for both sides, see showToo
       Outcome o = invokeTimed(oM, a.receiver, a.args, oCls);
       Outcome r = invokeTimed(rM, b.receiver, b.args, rCls);
       String why = divergence(o, r, oM.getReturnType(), a.receiver, b.receiver,
@@ -236,7 +237,9 @@ public final class GenericDifferential
         IoLog.add("null check", receiverText, IoLog.argTypes(oM.getGenericParameterTypes()),
             argsText, outcomeText(o), outcomeText(r), IoLog.comparison(why, o, r));
       }
-      if (why != null) {
+      // Same self-check as the normal comparison: if the original disagrees with itself on this
+      // input (SessiondataDao.check makes a random sessionId), the difference is not the refactoring.
+      if (why != null && originalSelfCheck(seed, oCls, oM, s, o, a, i) == null) {
         nullMismatch = nullReport(simple(s.original) + "." + s.method + "/" + s.arity, i, pts[i],
             why, a.args, o, r);
       }
@@ -278,7 +281,8 @@ public final class GenericDifferential
         IoLog.add("null check", "(constructor)", IoLog.argTypes(oc.getGenericParameterTypes()),
             show(argsA), outcomeText(o), outcomeText(r), IoLog.comparison(why, o, r));
       }
-      if (why != null) {
+      // As above (RoomMessage's constructor makes a random uid).
+      if (why != null && ctorSelfCheck(seed, oc, oCls, o, argsA, i) == null) {
         nullMismatch = nullReport(simple(s.original) + ".<init>/" + s.arity, i, pts[i], why,
             argsA, o, r);
       }
@@ -325,9 +329,10 @@ public final class GenericDifferential
     if (!s.isStatic) {
       requireConstructible(oCls, s);
     }
-    for (Class<?> pt : oM.getParameterTypes()) {
-      if (!ObjectFactory.maybeBuildable(pt)) {
-        skip(s, "parameter type has no buildable form: " + pt.getName());
+    Class<?>[] mts = oM.getParameterTypes();
+    for (int i = 0; i < mts.length; i++) {
+      if (!ObjectFactory.maybeBuildable(mts[i]) && !ObjectFactory.hasParameterRecipe(oCls, oM, i)) {
+        skip(s, "parameter type has no buildable form: " + mts[i].getName());
       }
     }
 
@@ -385,6 +390,7 @@ public final class GenericDifferential
     if (IoLog.underCap()) {
       receiverText = s.isStatic ? "(static)" : show(a.receiver);
       argsText = show(a.args);
+      showToo(b); // same treatment for both sides, see showToo
     }
 
     Outcome o = invokeTimed(oM, a.receiver, a.args, oCls);
@@ -405,11 +411,91 @@ public final class GenericDifferential
           argsText, outcomeText(o), outcomeText(r), IoLog.comparison(why, o, r));
     }
     if (why != null) {
+      // Same input, original side again. If the original disagrees with itself, the method depends
+      // on the clock, random values or identity (Whiteboard.created, random uids), not on the
+      // refactoring, so the difference above says nothing about equivalence.
+      String self = originalSelfCheck(seed, oCls, oM, s, o, a, -1);
+      if (self != null) {
+        skip(s, "nondeterministic: the original gives different results on the same input (" + self + ")");
+      }
       Assertions.fail(String.format(
           "[DIFFERENTIAL MISMATCH] %s.%s/%d%n  reason    : %s%n  ctorArgs  : %s%n"
           + "  methodArgs: %s%n  original  : %s%n  refactored: %s",
           simple(s.original), s.method, s.arity, why, a.receiverDesc, render(a.args), o, r));
     }
+  }
+
+  /**
+   * Runs the original a second time on the same input and returns how the two runs differ, or null
+   * when they agree (or the side could not be rebuilt). Both runs start from the same bytes on the
+   * same class, so any difference comes from the original itself, not from the refactoring.
+   */
+  private static String originalSelfCheck(byte[] seed, Class<?> oCls, Method oM, Spec s, Outcome o, Side a,
+      int nullArg)
+  {
+    Side a2;
+    try {
+      a2 = buildSide(seed, oCls, oM, s);
+    } catch (ObjectFactory.Unbuildable e) {
+      return null;
+    }
+    if (nullArg >= 0) {
+      a2.args[nullArg] = null; // the null check's input: same bytes, this argument null
+    }
+    Outcome o2 = invokeTimed(oM, a2.receiver, a2.args, oCls);
+    showToo(a2); // the first run's side was shown for the log by now; this one must be too
+    String self = divergence(o, o2, oM.getReturnType(), a.receiver, a2.receiver, a.receiver != null);
+    if (self == null) {
+      self = argumentDivergence(o, o2, a.args, a2.args, allTrue(a.args.length));
+    }
+    return self;
+  }
+
+  /** The constructor form of originalSelfCheck: build the original again from the same input. */
+  private static String ctorSelfCheck(byte[] seed, final Constructor<?> oc, Class<?> oCls, Outcome o,
+      Object[] argsA, int nullArg)
+  {
+    final Object[] argsA2;
+    try {
+      argsA2 = buildCtorArgs(seed, oc);
+    } catch (ObjectFactory.Unbuildable e) {
+      return null; // could not rebuild: keep the divergence
+    }
+    if (nullArg >= 0) {
+      argsA2[nullArg] = null;
+    }
+    Outcome o2 = timed(new Callable<Outcome>() {
+      @Override
+      public Outcome call() throws Exception {
+        return newInstanceOutcome(oc, argsA2);
+      }
+    }, oCls);
+    show(argsA2); // the first run's arguments were shown for the log by now; these must be too
+    String self = ctorDivergence(o, o2);
+    if (self == null) {
+      self = argumentDivergence(o, o2, argsA, argsA2, allTrue(argsA.length));
+    }
+    return self;
+  }
+
+  /**
+   * Shows a side for the input/output log and throws the text away. Showing is not always
+   * read-only: for JDK classes it calls toString(), and some cache their result in a field
+   * (javax.mail.URLName fills fullURL). When only the original side was shown, that field differed
+   * between the sides and was reported as a difference the methods never made
+   * (MailFileStore.getFolder: "fullURL:  vs null"). So every side gets shown the same way.
+   */
+  private static void showToo(Side side)
+  {
+    show(side.receiver);
+    show(side.args);
+  }
+
+  private static boolean[] allTrue(int n)
+  {
+    boolean[] b = new boolean[n];
+    java.util.Arrays.fill(b, true);
+    return b;
   }
 
   // ── one side of one iteration ───────────────────────────────────────────────
@@ -442,7 +528,7 @@ public final class GenericDifferential
     if (!s.isStatic) {
       // Receiver first, so the byte layout matches between the two sides regardless of how many
       // bytes constructing it happens to consume.
-      side.receiver = ObjectFactory.build(p, cls);
+      side.receiver = ObjectFactory.build(p, ObjectFactory.receiverClass(cls, m));
       side.receiverDesc = cls.getSimpleName() + "@built";
     }
     // Generic types, not raw ones: a List<Integer> parameter must reach ObjectFactory with its
@@ -450,7 +536,7 @@ public final class GenericDifferential
     java.lang.reflect.Type[] pts = m.getGenericParameterTypes();
     Object[] args = new Object[pts.length];
     for (int i = 0; i < pts.length; i++) {
-      args[i] = ObjectFactory.build(p, pts[i]);
+      args[i] = ObjectFactory.buildParameter(p, cls, m, i, pts[i]);
       requireFits(args[i], m.getParameterTypes()[i]);
     }
     side.args = args;
@@ -798,6 +884,13 @@ public final class GenericDifferential
       return a == b;
     }
     try {
+      if (a instanceof String && b instanceof String) {
+        return Digest.sameText((String) a, (String) b); // a printed identity hash is not behaviour
+      }
+      if (a instanceof Number && !(a.getClass().getName().startsWith("java.lang."))) {
+        // AtomicInteger, LongAdder, a project's own Number: equals() is identity, so compare state
+        return Digest.diff(a, b) == null;
+      }
       if (a.getClass().isArray() && b.getClass().isArray()) {
         return Objects.deepEquals(a, b);
       }
@@ -840,9 +933,10 @@ public final class GenericDifferential
     final Constructor<?> rc = rcResolved;
     oc.setAccessible(true);
     rc.setAccessible(true);
-    for (Class<?> pt : oc.getParameterTypes()) {
-      if (!ObjectFactory.maybeBuildable(pt)) {
-        skip(s, "constructor parameter has no buildable form: " + pt.getName());
+    Class<?>[] cts = oc.getParameterTypes();
+    for (int i = 0; i < cts.length; i++) {
+      if (!ObjectFactory.maybeBuildable(cts[i]) && !ObjectFactory.hasParameterRecipe(oc.getDeclaringClass(), oc, i)) {
+        skip(s, "constructor parameter has no buildable form: " + cts[i].getName());
       }
     }
     final Object[] argsA;
@@ -869,7 +963,11 @@ public final class GenericDifferential
     for (int i = 0; i < argsA.length; i++) {
       argsStartedEqual[i] = Digest.diff(argsA[i], argsB[i]) == null;
     }
-    String argsText = IoLog.underCap() ? show(argsA) : null;
+    String argsText = null;
+    if (IoLog.underCap()) {
+      argsText = show(argsA);
+      show(argsB); // same treatment for both sides, see showToo
+    }
     // Outcome o = timed(() -> newInstanceOutcome(oc, argsA));
     Outcome o = timed(new Callable<Outcome>() {
     @Override
@@ -899,6 +997,11 @@ public final class GenericDifferential
           argsText, outcomeText(o), outcomeText(r), IoLog.comparison(why, o, r));
     }
     if (why != null) {
+      // Same check as for methods: build the original again from the same input.
+      String self = ctorSelfCheck(seed, oc, oCls, o, argsA, -1);
+      if (self != null) {
+        skip(s, "nondeterministic: the original gives different results on the same input (" + self + ")");
+      }
       Assertions.fail(String.format(
           "[DIFFERENTIAL MISMATCH] %s.<init>/%d%n  reason    : %s%n  ctorArgs  : %s%n"
           + "  methodArgs: %s%n  original  : %s%n  refactored: %s",
@@ -1004,7 +1107,7 @@ public final class GenericDifferential
       java.lang.reflect.Type[] pts = c.getGenericParameterTypes();
       Object[] args = new Object[pts.length];
       for (int i = 0; i < pts.length; i++) {
-        args[i] = ObjectFactory.build(p, pts[i]);
+        args[i] = ObjectFactory.buildParameter(p, c.getDeclaringClass(), c, i, pts[i]);
         requireFits(args[i], c.getParameterTypes()[i]);
       }
       return args;
@@ -1092,20 +1195,28 @@ public final class GenericDifferential
       return "null";
     }
     if (v instanceof Object[]) {
+      // At most the first 32 elements, like any other array below.
       Object[] a = (Object[]) v;
       StringBuilder sb = new StringBuilder("[");
-      for (int i = 0; i < a.length; i++) {
+      for (int i = 0; i < a.length && i < 32; i++) {
         sb.append(i > 0 ? ", " : "").append(show(a[i]));
       }
-      return sb.append("]").toString();
+      return sb.append(a.length > 32 ? ", ... (" + a.length + " items)]" : "]").toString();
+    }
+    if (v.getClass().isArray()) {
+      return arrayToString(v);
     }
     try {
-      if (v.getClass().isArray()
-          || v.getClass().getMethod("toString").getDeclaringClass() != Object.class) {
+      // A JDK class (not a collection or map) keeps its own toString(): from Java 17 its fields
+      // cannot be read ("HeapByteBuffer{address=<inaccessible>,...}").
+      String n = v.getClass().getName();
+      if ((n.startsWith("java.") || n.startsWith("javax."))
+          && !(v instanceof java.util.Collection) && !(v instanceof java.util.Map)) {
         return render(v);
       }
-      String d = Digest.of(v);
-      return escape(d.length() > 200 ? d.substring(0, 200) + "..." : d);
+      // Everything else: the object's fields, not its toString(), which can hide the values
+      // inside (PhysicalNode printed only its client's address). IoLog caps the cell length.
+      return escape(Digest.of(v));
     } catch (Throwable t) {
       return render(v);
     }
@@ -1148,8 +1259,9 @@ public final class GenericDifferential
       return arrayToString(v);
     }
     try {
+      // Cut at the CSV cell length: a giant toString() ran out of memory here.
       String s = String.valueOf(v);
-      return escape(s.length() > 120 ? s.substring(0, 120) + "..." : s);
+      return escape(s.length() > 1000 ? s.substring(0, 1000) + "..." : s);
     } catch (Throwable t) {
       return "<toString threw " + t.getClass().getSimpleName() + ">";
     }
@@ -1178,26 +1290,29 @@ public final class GenericDifferential
 
   private static String renderArgs(Object[] args)
   {
+    // At most the first 32: also used for a returned Object[], which can have millions of entries.
     StringBuilder sb = new StringBuilder("[");
-    for (int i = 0; i < args.length; i++) {
+    for (int i = 0; i < args.length && i < 32; i++) {
       if (i > 0) {
         sb.append(", ");
       }
       sb.append(render(args[i]));
     }
-    return sb.append(']').toString();
+    return sb.append(args.length > 32 ? ", ... (" + args.length + " items)]" : "]").toString();
   }
 
+  /**
+   * At most the first 32 elements: a method can return an array of millions (a fuzzed size), and
+   * writing it whole ran out of memory (DoubleCountHashMap.getDictionary).
+   */
   private static String arrayToString(Object a)
   {
-    if (a instanceof byte[]) return Arrays.toString((byte[]) a);
-    if (a instanceof int[]) return Arrays.toString((int[]) a);
-    if (a instanceof long[]) return Arrays.toString((long[]) a);
-    if (a instanceof short[]) return Arrays.toString((short[]) a);
-    if (a instanceof char[]) return Arrays.toString((char[]) a);
-    if (a instanceof boolean[]) return Arrays.toString((boolean[]) a);
-    if (a instanceof float[]) return Arrays.toString((float[]) a);
-    if (a instanceof double[]) return Arrays.toString((double[]) a);
-    return Arrays.deepToString((Object[]) a);
+    int n = java.lang.reflect.Array.getLength(a);
+    StringBuilder sb = new StringBuilder("[");
+    for (int i = 0; i < n && i < 32; i++) {
+      Object e = java.lang.reflect.Array.get(a, i);
+      sb.append(i > 0 ? ", " : "").append(e != null && e.getClass().isArray() ? arrayToString(e) : String.valueOf(e));
+    }
+    return escape(sb.append(n > 32 ? ", ... (" + n + " items)]" : "]").toString());
   }
 }

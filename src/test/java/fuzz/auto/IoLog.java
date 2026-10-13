@@ -89,6 +89,9 @@ final class IoLog
     if (s == null) {
       return "";
     }
+    if (s.length() > 1000) {
+      s = s.substring(0, 1000) + "..."; // one cell, not a whole object graph
+    }
     return "\"" + s.replace("\"", "\"\"").replace("\n", "\\n").replace("\r", "\\r") + "\"";
   }
 }

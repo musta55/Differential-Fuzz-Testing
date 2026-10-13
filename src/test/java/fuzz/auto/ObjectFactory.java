@@ -61,6 +61,8 @@ final class ObjectFactory
     CONCRETE.put(java.io.Reader.class, java.io.StringReader.class);
     CONCRETE.put(java.io.Writer.class, java.io.StringWriter.class);
     CONCRETE.put(java.io.DataOutput.class, java.io.DataOutputStream.class);
+    CONCRETE.put(org.xml.sax.Attributes.class, org.xml.sax.helpers.AttributesImpl.class);
+    CONCRETE.put(java.util.Calendar.class, java.util.GregorianCalendar.class);
     }
 
   /** Cache of abstract/interface type -> its ranked concrete subtypes (empty if none). */
@@ -108,11 +110,25 @@ final class ObjectFactory
         return build(data, raw);
       }
       java.lang.reflect.Type[] targs = pt.getActualTypeArguments();
+      if (isMultivaluedMap(raw) && targs.length == 2) {
+        return buildMultivaluedMap(data, raw, targs[0], targs[1]);
+      }
       if (java.util.Map.class.isAssignableFrom(raw) && targs.length == 2) {
         return buildMap(data, raw, targs[0], targs[1]);
       }
       if (java.util.Collection.class.isAssignableFrom(raw) && targs.length == 1) {
         return buildCollection(data, raw, targs[0]);
+      }
+      // scala.Tuple2<A,B>: its constructor takes (Object, Object), so _1 and _2 were built as
+      // Strings and every Spark call(Tuple2<..>) failed its first cast. Build them as A and B.
+      if (raw.getName().equals("scala.Tuple2") && targs.length == 2) {
+        Object first = build(data, targs[0]);
+        Object second = build(data, targs[1]);
+        try {
+          return raw.getConstructor(Object.class, Object.class).newInstance(first, second);
+        } catch (Exception e) {
+          return build(data, raw); // not the scala Tuple2 expected: the plain path, as before
+        }
       }
       return build(data, raw);
     }
@@ -122,6 +138,14 @@ final class ObjectFactory
     }
     if (t instanceof Class) {
       return build(data, (Class<?>) t);
+    }
+    // A type variable with a bound is built as its bound: for <R extends HttpRequest> a String
+    // never fits the parameter (every jclouds bindToRequest(R, ...) failed that way).
+    if (t instanceof java.lang.reflect.TypeVariable) {
+      java.lang.reflect.Type[] bounds = ((java.lang.reflect.TypeVariable<?>) t).getBounds();
+      if (bounds.length > 0 && bounds[0] != Object.class) {
+        return build(data, bounds[0]);
+      }
     }
     // A type variable (T) or wildcard has no concrete form here; String is the same stand-in
     // CONCRETE already uses for a bare Object.
@@ -161,9 +185,10 @@ final class ObjectFactory
       java.lang.reflect.Type elem)
   {
     int n = data.consumeInt(0, MAX_ELEMENTS);
+    java.lang.reflect.Method copyOf = copyOf(raw);
     @SuppressWarnings("unchecked")
-    java.util.Collection<Object> c =
-        (java.util.Collection<Object>) newInstanceOf(data, effective(raw), java.util.ArrayList.class);
+    java.util.Collection<Object> c = copyOf != null ? new ArrayList<Object>()
+        : (java.util.Collection<Object>) newInstanceOf(data, effective(raw), java.util.ArrayList.class);
     for (int i = 0; i < n; i++) {
       try {
         c.add(build(data, elem));
@@ -171,7 +196,69 @@ final class ObjectFactory
         break; // a partially filled collection is still better than an empty one
       }
     }
+    if (copyOf != null) {
+      try {
+        return copyOf.invoke(null, c);
+      } catch (Exception e) {
+        throw new Unbuildable("could not build " + raw.getName() + " with copyOf: " + e);
+      }
+    }
     return c;
+  }
+
+  /**
+   * The static copyOf(Collection) of a collection class that has no usable constructor, such as
+   * Guava's ImmutableList and ImmutableSet (abstract, made only by their factories), or null.
+   */
+  private static java.lang.reflect.Method copyOf(Class<?> raw)
+  {
+    if (raw.isInterface() || !Modifier.isAbstract(raw.getModifiers())) {
+      return null;
+    }
+    try {
+      java.lang.reflect.Method m = raw.getMethod("copyOf", java.util.Collection.class);
+      return Modifier.isStatic(m.getModifiers()) && raw.isAssignableFrom(m.getReturnType()) ? m : null;
+    } catch (NoSuchMethodException e) {
+      return null;
+    }
+  }
+
+  /** javax/jakarta.ws.rs.core.MultivaluedMap, by name: it is not on every project's class path. */
+  private static boolean isMultivaluedMap(Class<?> c)
+  {
+    if (c == null) {
+      return false;
+    }
+    if (c.getName().endsWith(".ws.rs.core.MultivaluedMap")) {
+      return true;
+    }
+    for (Class<?> i : c.getInterfaces()) {
+      if (isMultivaluedMap(i)) {
+        return true;
+      }
+    }
+    return isMultivaluedMap(c.getSuperclass());
+  }
+
+  /**
+   * A MultivaluedMap<K,V> keeps a List<V> per key, so buildMap's put(K, V) threw
+   * ClassCastException (AppointmentMessageBodyReader.readFrom). Fill it through its own add(K, V).
+   */
+  private static Object buildMultivaluedMap(FuzzedDataProvider data, Class<?> raw,
+      java.lang.reflect.Type k, java.lang.reflect.Type v)
+  {
+    int n = data.consumeInt(0, MAX_ELEMENTS);
+    Object m = newInstanceOf(data, effective(raw), java.util.LinkedHashMap.class);
+    for (int i = 0; i < n; i++) {
+      try {
+        Object key = build(data, k);
+        Object value = build(data, v);
+        m.getClass().getMethod("add", Object.class, Object.class).invoke(m, key, value);
+      } catch (Exception e) {
+        break; // an unbuildable key/value, or add() failed: keep the entries made so far
+      }
+    }
+    return m;
   }
 
   private static Object buildMap(FuzzedDataProvider data, Class<?> raw,
@@ -267,6 +354,9 @@ final class ObjectFactory
       String a;
       try {
         a = String.valueOf(args[i]);
+        if (a == null) {
+          a = "null"; // a toString() that returns null
+        }
       } catch (Throwable e) {
         a = "<" + args[i].getClass().getSimpleName() + ">";
       }
@@ -299,6 +389,11 @@ final class ObjectFactory
     }
     if (Scalars.isScalar(t)) {
       return Scalars.build(data, t);
+    }
+    if (t == java.util.Date.class) {
+      // From a fuzzed instant, not new Date() (now): the two sides were built a millisecond apart
+      // and differed before the call (BaseMutableContentMetadata.setExpires).
+      return new java.util.Date(data.consumeLong());
     }
     if (t.isEnum()) {
       // Pick a constant directly. Through autofuzz, an enum after arguments that used up the input
@@ -360,6 +455,61 @@ final class ObjectFactory
   }
 
   /** A hand-written {@link fuzz.auto.recipes.Recipe} for this class, if one is registered. */
+  /**
+   * Argument {@code i} of method or constructor {@code m} on {@code owner}: its own recipe when one
+   * is registered for exactly that parameter ("Class.method#i", "Class.<init>#i" for a constructor),
+   * else the usual build from the declared type.
+   */
+  static Object buildParameter(FuzzedDataProvider data, Class<?> owner,
+      java.lang.reflect.Executable m, int i, java.lang.reflect.Type t)
+  {
+    fuzz.auto.recipes.Recipe r = fuzz.auto.recipes.Recipes.forParameter(parameterKey(owner, m, i));
+    if (r != null) {
+      try {
+        Object v = r.build(data, owner);
+        // The key names the method, not the overload: DenseBlock.set has a dozen. A value that
+        // does not fit this overload's parameter was meant for another one.
+        if (v == null || fits(v, m.getParameterTypes()[i])) {
+          return v;
+        }
+      } catch (Throwable e) {
+        // fall back to the declared type
+      }
+    }
+    return build(data, t);
+  }
+
+  /** Whether argument {@code i} of {@code m} has its own recipe (see {@link #buildParameter}). */
+  static boolean hasParameterRecipe(Class<?> owner, java.lang.reflect.Executable m, int i)
+  {
+    return fuzz.auto.recipes.Recipes.forParameter(parameterKey(owner, m, i)) != null;
+  }
+
+  /** "Class.method#i", or "Class.<init>#i" for a constructor. */
+  private static String parameterKey(Class<?> owner, java.lang.reflect.Executable m, int i)
+  {
+    String name = m instanceof java.lang.reflect.Constructor ? "<init>" : m.getName();
+    return owner.getName() + "." + name + "#" + i;
+  }
+
+  /** Whether {@code v} can be passed for a parameter of type {@code p}. */
+  private static boolean fits(Object v, Class<?> p)
+  {
+    if (p == int.class) {
+      return v instanceof Integer;
+    }
+    if (p == long.class) {
+      return v instanceof Long;
+    }
+    if (p == double.class) {
+      return v instanceof Double;
+    }
+    if (p == boolean.class) {
+      return v instanceof Boolean;
+    }
+    return !p.isPrimitive() && p.isInstance(v); // other primitives: no recipe makes them
+  }
+
   private static Object viaRecipe(FuzzedDataProvider data, Class<?> t)
   {
     fuzz.auto.recipes.Recipe r = fuzz.auto.recipes.Recipes.forClass(t.getName());
@@ -454,7 +604,12 @@ final class ObjectFactory
         || Modifier.isAbstract(t.getModifiers())) {
       return null;
     }
-    java.lang.reflect.Constructor<?>[] ctors = t.getDeclaredConstructors();
+    java.lang.reflect.Constructor<?>[] ctors;
+    try {
+      ctors = t.getDeclaredConstructors();
+    } catch (LinkageError e) {
+      return null; // a constructor needs a class that is not on the classpath (see isInstantiableSubtype)
+    }
     // java.util.Arrays.sort(ctors,
     //     java.util.Comparator.comparingInt(java.lang.reflect.Constructor::getParameterCount));
     java.util.Arrays.sort(ctors, new java.util.Comparator<java.lang.reflect.Constructor<?>>() {
@@ -506,10 +661,34 @@ final class ObjectFactory
     return true;
   }
 
+  /**
+   * Like CONCRETE, for types that are not on every project's class path, so they are named, not
+   * referenced: the engine is compiled once for all projects.
+   */
+  private static final Map<String, String> CONCRETE_BY_NAME = new HashMap<>();
+
+  static {
+    CONCRETE_BY_NAME.put("javax.ws.rs.core.MultivaluedMap", "javax.ws.rs.core.MultivaluedHashMap");
+  }
+
   private static Class<?> effective(Class<?> t)
   {
     Class<?> c = CONCRETE.get(t);
-    return c != null ? c : t;
+    if (c != null) {
+      return c;
+    }
+    String impl = CONCRETE_BY_NAME.get(t.getName());
+    if (impl != null) {
+      try {
+        Class<?> k = Class.forName(impl, false, t.getClassLoader());
+        if (t.isAssignableFrom(k)) {
+          return k;
+        }
+      } catch (ClassNotFoundException e) {
+        // this project's JAX-RS version has no such class: keep the interface
+      }
+    }
+    return t;
   }
 
   private static Object tryConsume(FuzzedDataProvider data, Class<?> t)
@@ -535,6 +714,59 @@ final class ObjectFactory
   {
     List<Class<?>> subs = concreteSubtypesOf(t);
     return subs.isEmpty() ? null : subs.get(0);
+  }
+
+  /** Cache of method under test -> the class its receivers are built as. */
+  private static final Map<java.lang.reflect.Method, Class<?>> RECEIVER_CLASSES = new ConcurrentHashMap<>();
+
+  /**
+   * The class to build as the receiver of {@code m}, declared in {@code cls}: cls itself, unless
+   * cls is abstract and some subtype overrides m. Then a built subtype could be one that never runs
+   * m at all (DenseBlockDRB.reset: six of its seven subclasses override it), so the first concrete
+   * subtype, in the usual rank order, that inherits m is chosen. When no subtype overrides m, cls
+   * is kept, so it is built as before (by its recipe, if it has one): any subtype runs m.
+   */
+  static Class<?> receiverClass(Class<?> cls, java.lang.reflect.Method m)
+  {
+    Class<?> cached = RECEIVER_CLASSES.get(m);
+    if (cached != null) {
+      return cached;
+    }
+    Class<?> found = cls;
+    if (isAbstractType(cls) && cls.getClassLoader() instanceof SideLoader) {
+      SideLoader side = (SideLoader) cls.getClassLoader();
+      Class<?> inheriting = null;
+      boolean overridden = false;
+      for (String name : candidates(cls, side.classNames())) {
+        Class<?> c = loadQuietly(name, side);
+        if (c != null && isInstantiableSubtype(c, cls)) {
+          if (overrides(c, cls, m)) {
+            overridden = true;
+          } else if (inheriting == null) {
+            inheriting = c;
+          }
+        }
+      }
+      if (overridden && inheriting != null) {
+        found = inheriting;
+      }
+    }
+    RECEIVER_CLASSES.put(m, found);
+    return found;
+  }
+
+  /** Whether {@code sub}, or a class between it and {@code cls}, declares its own {@code m}. */
+  private static boolean overrides(Class<?> sub, Class<?> cls, java.lang.reflect.Method m)
+  {
+    for (Class<?> k = sub; k != null && k != cls; k = k.getSuperclass()) {
+      try {
+        k.getDeclaredMethod(m.getName(), m.getParameterTypes());
+        return true;
+      } catch (Throwable e) {
+        // not declared here (or not loadable): look further up
+      }
+    }
+    return false;
   }
 
   /**
@@ -619,7 +851,13 @@ final class ObjectFactory
     if (c.getEnclosingClass() != null && !Modifier.isStatic(c.getModifiers())) {
       return false;
     }
-    return c.getDeclaredConstructors().length > 0;
+    try {
+      return c.getDeclaredConstructors().length > 0;
+    } catch (LinkageError e) {
+      // A constructor names a class from an optional library that is not on the classpath
+      // (XStream's XomReader needs nu.xom). Skip this candidate instead of failing the method.
+      return false;
+    }
   }
 
   private static Class<?> loadQuietly(String name, ClassLoader loader)

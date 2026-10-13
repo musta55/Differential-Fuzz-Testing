@@ -1,3 +1,0 @@
-public RemoteSampleListenerWrapper() {
-    this(null);
-}

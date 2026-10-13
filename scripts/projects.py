@@ -23,6 +23,8 @@ with no registration step.
 """
 import json
 import os
+import re
+import subprocess
 from datetime import datetime
 
 MODULE = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -117,6 +119,25 @@ def resolve_trees(name, original=None, refactored=None):
         if not os.path.isdir(tree):
             raise SystemExit(f"{label} tree does not exist: {tree}")
     return os.path.abspath(orig), os.path.abspath(ref)
+
+
+def jvm_flags():
+    """Extra flags for the JVMs that load project classes (the fuzzing and seed-writing JVMs).
+
+    systemds uses Java's Vector API, an incubator module from Java 16 on: it must be added by name,
+    or every class touching it fails with NoClassDefFoundError: jdk/incubator/vector/... Java 8
+    rejects the option, so it is added only when the JVM Maven runs on is new enough.
+    """
+    java = os.path.join(os.environ["JAVA_HOME"], "bin", "java") if os.environ.get("JAVA_HOME") else "java"
+    try:
+        out = subprocess.run([java, "-version"], capture_output=True, text=True).stderr
+    except OSError:
+        return []
+    m = re.search(r'version "(\d+)(?:\.(\d+))?', out)
+    if not m:
+        return []
+    major = int(m.group(2) or 0) if m.group(1) == "1" else int(m.group(1))  # "1.8.0" -> 8
+    return ["--add-modules=jdk.incubator.vector"] if major >= 16 else []
 
 
 def java_release(name):

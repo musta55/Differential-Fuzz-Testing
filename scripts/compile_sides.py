@@ -75,6 +75,16 @@ def lombok_jar(root, rels):
     return jars[-1] if jars else None
 
 
+PACKAGE = re.compile(r"^\s*package\s+([\w.]+)\s*;", re.M)
+
+
+def declared_package(path):
+    """The package a .java file declares, or "" when it declares none."""
+    with open(path, encoding="utf-8", errors="replace") as f:
+        m = PACKAGE.search(f.read())
+    return m.group(1) if m else ""
+
+
 def is_test_source(rel):
     """Test code needs the project's test dependencies and is never what a refactoring targets."""
     return "/src/test/" in "/" + rel
@@ -243,7 +253,15 @@ def main(project):
         methods_by_file.setdefault(e["source"]["original"], []).append(e["id"])
     status_of, rows = {}, []
     for rel in java_files:
-        if rel in compiled_failed_original_classes: ## original class does not compile against fat jar
+        orig_pkg = declared_package(os.path.join(orig_root, rel)) if rel in orig_files else None
+        ref_pkg = declared_package(os.path.join(ref_root, rel))
+        if orig_pkg is not None and orig_pkg != ref_pkg:
+            # The refactoring replaced the file with a class of another package (jclouds: the atmos
+            # BlobToObject.java was overwritten with the s3 one), so the original class no longer
+            # exists in the refactored project. Both sides may compile, but not as the same class.
+            status, error = "REFACTORING_BROKEN", (f"refactored file declares package {ref_pkg} "
+                                                   f"(original: {orig_pkg})")
+        elif rel in compiled_failed_original_classes: ## original class does not compile against fat jar
             status, error = "ENVIRONMENT", compiled_failed_original_classes[rel]
         elif rel in compiled_failed_refactored_classes: ## refactored class does not compile against fat jar
             status, error = "REFACTORING_BROKEN", compiled_failed_refactored_classes[rel]

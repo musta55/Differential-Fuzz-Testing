@@ -4,6 +4,7 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -67,14 +68,51 @@ final class Digest
     // A Throwable's raw call stack, recorded by the JVM when it is created. It includes the
     // engine's own frames, which differ per side (GenericDifferential$3 vs $4).
     IGNORED_FIELD_NAMES.add("backtrace");
+    // The same call stack in Java form; it differs only in the engine's own frames.
+    IGNORED_FIELD_NAMES.add("stackTrace");
+    // Caches filled on first use, so one side can have them and the other not:
+    // java.util.Date's calendar fields, Guava's Multimap.asMap() view, a wildcard type's bounds.
+    IGNORED_FIELD_NAMES.add("cdate");
+    IGNORED_FIELD_NAMES.add("asMap");
+    IGNORED_FIELD_NAMES.add("lowerBounds");
+    IGNORED_FIELD_NAMES.add("upperBounds");
     // Deliberately NOT ignored: "id". It is usually a meaningful value that a refactoring can
     // genuinely change, so suppressing it would hide real divergences. Only fields that differ
     // between two *identical* constructions belong on this list.
   }
 
-  private static boolean ignored(String name)
+  /**
+   * Fields ignored only on one exact class ("declaring.class.Name.field"), so the same field name
+   * elsewhere is still compared. systemds numbers every Lop, CNode, Hop, variable map and lineage
+   * item from a global counter that is never reset, so a rebuilt object always gets a new number:
+   * identity, not behaviour. Hadoop services stamp their lifecycle with the wall clock, so two
+   * identical runs differ there by however many milliseconds lie between them. A direct buffer's
+   * address is where the system put its memory, new for every allocation. apex-core numbers event
+   * groups and events from global counters, like systemds.
+   */
+  private static final List<String> IGNORED_FIELDS = Arrays.asList(
+      "java.nio.Buffer.address",
+      "java.net.URI.hash", // a cached hashCode of the URI text, which differs in the side folder name
+      "org.apache.apex.engine.events.grouping.GroupingRequest$EventGroupId.groupId",
+      "com.datatorrent.stram.api.StramEvent.id",
+      "org.apache.hadoop.service.LifecycleEvent.time",
+      "org.apache.hadoop.service.AbstractService.startTime",
+      "org.apache.sysds.lops.LopProperties.ID",
+      "org.apache.sysds.hops.codegen.cplan.CNode._ID",
+      "org.apache.sysds.hops.codegen.cplan.CNode._genVar",
+      "org.apache.sysds.hops.Hop._ID",
+      "org.apache.sysds.runtime.controlprogram.LocalVariableMap.localID",
+      "org.apache.sysds.runtime.lineage.LineageItem._id",
+      "org.apache.sysds.runtime.controlprogram.caching.CacheableData._uniqueID",
+      "org.apache.sysds.runtime.instructions.ooc.CachingStream._streamId",
+      "org.apache.sysds.runtime.ooc.memory.CachedAllowance._streamId");
+
+  private static boolean ignored(Field f)
   {
-    String n = name.toLowerCase(java.util.Locale.ROOT);
+    if (IGNORED_FIELDS.contains(f.getDeclaringClass().getName() + "." + f.getName())) {
+      return true;
+    }
+    String n = f.getName().toLowerCase(java.util.Locale.ROOT);
     for (int i = 0; i < IGNORED_FIELD_NAMES.size(); i++) {
       if (n.equals(IGNORED_FIELD_NAMES.get(i).toLowerCase(java.util.Locale.ROOT))) {
         return true;
@@ -122,7 +160,19 @@ final class Digest
         || a instanceof Map || b instanceof Map) {
       String da = of(a);
       String db = of(b);
-      return da.equals(db) ? null : at(path, da, db);
+      return sameText(da, db) ? null : at(path, da, db);
+    }
+    // Two objects of different classes are different results even when their fields agree
+    // (MatrixAppendCPInstruction vs FrameAppendCPInstruction). name() ignores what legitimately
+    // differs between the sides: proxy and lambda numbers, and the Original/Refactored suffix.
+    // An anonymous class has no name to compare: turning one into a named class (ParseInfo's
+    // anonymous implementation into ParseInfoImpl) is a refactoring, so only the fields count.
+    if (!ca.isAnonymousClass() && !b.getClass().isAnonymousClass()
+        && !name(ca).equals(name(b.getClass()))) {
+      return at(path, name(ca), name(b.getClass()));
+    }
+    if (isLambda(ca)) {
+      return null; // same lambda by name; what it captured is an implementation detail
     }
     seen.put(a, a);
     try {
@@ -130,7 +180,7 @@ final class Digest
       Map<String, Field> fb = fieldsOf(b.getClass());
       for (Map.Entry<String, Field> e : fa.entrySet()) {
         Field other = fb.get(e.getKey());
-        if (other == null || ignored(e.getKey())) {
+        if (other == null || ignored(e.getValue())) {
           continue; // added/removed by the refactoring, or known-nondeterministic
         }
         Object va;
@@ -178,9 +228,44 @@ final class Digest
    * "threadNumber: 1 vs 1". Comparing what they render as is both correct here and what the
    * report shows the reader.
    */
+  /**
+   * Java's default toString ends in "@" and the object's identity hash ("[Ljava.lang.String;@1b6d3586",
+   * "a.b.Foo@4554617c"). The hash is new for every object, so a rebuilt equal object prints a
+   * different number: identity, not behaviour. Only class-name shapes are matched (an array type,
+   * or a dotted name), so an e-mail address or "x@ff" in program output is left alone.
+   */
+  private static final java.util.regex.Pattern IDENTITY_HASH = java.util.regex.Pattern.compile(
+      "(\\[+[A-Z][\\w$.]*;?|[A-Za-z_$][\\w$]*(?:\\.[A-Za-z_$][\\w$]*)+)@[0-9a-f]{1,8}\\b");
+
+  /** The text with identity hashes replaced by "@#". */
+  static String withoutIdentityHashes(String s)
+  {
+    return IDENTITY_HASH.matcher(s).replaceAll("$1@#");
+  }
+
+  /**
+   * Each side works in its own scratch folder (CommonRecipes.SideFolder), so that what one side
+   * writes to disk cannot change what the other reads; its name is the only difference in the
+   * paths the two sides see.
+   */
+  static String withoutSideFolders(String s)
+  {
+    return s.replace("fuzzside-original", "fuzzside-#").replace("fuzzside-refactored", "fuzzside-#");
+  }
+
+  /** Two texts equal once identity hashes and the side's own scratch folder are ignored. */
+  static boolean sameText(String a, String b)
+  {
+    return a.equals(b) || withoutSideFolders(withoutIdentityHashes(a))
+        .equals(withoutSideFolders(withoutIdentityHashes(b)));
+  }
+
   private static boolean safeEquals(Object a, Object b)
   {
     try {
+      if (a instanceof String && b instanceof String) {
+        return sameText((String) a, (String) b);
+      }
       if (a instanceof Number || a instanceof Character || a instanceof Boolean) {
         return String.valueOf(a).equals(String.valueOf(b));
       }
@@ -204,6 +289,17 @@ final class Digest
     } catch (Throwable t) {
       return true; // cannot tell; do not manufacture a divergence
     }
+  }
+
+  /**
+   * A lambda (Foo$$Lambda...): compared by its name only. What it captured is how the code was
+   * written, not what it does: an extract-method refactoring that moves a lambda's body into a
+   * helper makes it capture "this" as well (SubOOCStream.setSubscriber), and the two sides then
+   * differed only in that. A changed behaviour still shows when the lambda runs.
+   */
+  private static boolean isLambda(Class<?> c)
+  {
+    return c.getName().contains("$$Lambda");
   }
 
   private static String at(String path, Object a, Object b)
@@ -256,6 +352,8 @@ final class Digest
         writeMap(sb, (Map<?, ?>) o, depth, seen);
       } else if (o instanceof Collection) {
         writeCollection(sb, (Collection<?>) o, depth, seen);
+      } else if (isLambda(c)) {
+        sb.append(name(c)); // its name only, not what it captured (see isLambda)
       } else {
         writeFields(sb, o, c, depth, seen);
       }
@@ -332,21 +430,27 @@ final class Digest
     sb.append(name(col.getClass())).append(parts);
   }
 
-  private static void writeMap(StringBuilder sb, Map<?, ?> m, int depth,
-      IdentityHashMap<Object, Object> seen)
+  private static void writeMap(StringBuilder sb, Map<?, ?> m, final int depth,
+      final IdentityHashMap<Object, Object> seen)
   {
-    TreeMap<String, String> sorted = new TreeMap<>();
-    int i = 0;
-    for (Map.Entry<?, ?> e : m.entrySet()) {
-      if (i++ >= MAX_ELEMENTS) {
-        break;
+    final TreeMap<String, String> sorted = new TreeMap<>();
+    // forEach, not entrySet(): some maps get only one of them right. systemds' HashMapToInt
+    // returns a single entry from entrySet() (which one depends on its capacity), while forEach
+    // sees them all. For other maps forEach goes through entrySet() itself, so nothing changes.
+    m.forEach(new java.util.function.BiConsumer<Object, Object>() {
+      @Override
+      public void accept(Object key, Object value)
+      {
+        if (sorted.size() >= MAX_ELEMENTS) {
+          return;
+        }
+        StringBuilder k = new StringBuilder();
+        StringBuilder v = new StringBuilder();
+        write(k, key, depth + 1, seen);
+        write(v, value, depth + 1, seen);
+        sorted.put(k.toString(), v.toString());
       }
-      StringBuilder k = new StringBuilder();
-      StringBuilder v = new StringBuilder();
-      write(k, e.getKey(), depth + 1, seen);
-      write(v, e.getValue(), depth + 1, seen);
-      sorted.put(k.toString(), v.toString());
-    }
+    });
     sb.append("map").append(sorted);
   }
 
@@ -383,7 +487,7 @@ final class Digest
         sb.append("<inaccessible>"); // JPMS-closed or a security manager; same on both sides
         continue;
       }
-      if (ignored(e.getKey())) {
+      if (ignored(f)) {
         sb.append(v == null ? "null" : "<ignored>");
       } else {
         write(sb, v, depth + 1, seen);
@@ -416,11 +520,21 @@ final class Digest
         || n.startsWith("org.apache.commons.logging.");
   }
 
-  /** Types rendered by value rather than walked. */
+  /**
+   * Types rendered by value rather than walked. Only Java's own numbers: a project's Number
+   * subclass that keeps Object's toString (skywalking's AtomicRangeIntegerV2) would render as its
+   * identity hash, so it is walked like any other object.
+   */
   private static boolean isValue(Class<?> c)
   {
-    return c.isPrimitive() || c.isEnum() || c == String.class || Number.class.isAssignableFrom(c)
+    return c.isPrimitive() || c.isEnum() || c == String.class || isJavaNumber(c)
         || c == Boolean.class || c == Character.class || c == Class.class;
+  }
+
+  /** Integer, Long, BigDecimal, AtomicInteger ...: a Number from Java itself. */
+  static boolean isJavaNumber(Class<?> c)
+  {
+    return Number.class.isAssignableFrom(c) && c.getName().startsWith("java.");
   }
 
   /**
