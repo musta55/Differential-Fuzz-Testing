@@ -48,13 +48,12 @@ def extractor_classpath():
     os.makedirs(out, exist_ok=True)
     cp = os.pathsep.join([JP_JAR, GSON_JAR])
     src = os.path.join(MODULE, "scripts/MethodExtractor.java")
-    cls = os.path.join(out, "MethodExtractor.class")
-    if not os.path.isfile(cls) or os.path.getmtime(src) > os.path.getmtime(cls):
-        r = subprocess.run(["javac", "-cp", cp, "-d", out, src],
-                           capture_output=True, text=True)
-        # print(r.stdout, end="", flush=True)
-        if r.returncode != 0:
-            sys.exit("could not compile MethodExtractor:\n" + r.stdout + r.stderr)
+    # compiled every run: the java on PATH changes between projects (8, 11, 17), and a class built
+    # by a newer javac cannot be loaded by an older java
+    r = subprocess.run(["javac", "-cp", cp, "-d", out, src],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit("could not compile MethodExtractor:\n" + r.stdout + r.stderr)
     return os.pathsep.join([out, cp])
 
 

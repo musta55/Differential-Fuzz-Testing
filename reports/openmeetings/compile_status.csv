@@ -1,0 +1,187 @@
+File,Original,Refactored,Status,Error,Methods
+openmeetings-core/src/main/java/org/apache/openmeetings/core/converter/ImageConverter.java,ok,ok,OK,,ImageConverter.convertImage;ImageConverter.convertDocument
+openmeetings-core/src/main/java/org/apache/openmeetings/core/converter/RecordingConverter.java,ok,ok,OK,,RecordingConverter.startConversion
+openmeetings-core/src/main/java/org/apache/openmeetings/core/documents/LibraryChartLoader.java,ok,ok,OK,,LibraryChartLoader.loadChart
+openmeetings-core/src/main/java/org/apache/openmeetings/core/ldap/LdapOptions.java,ok,ok,OK,,LdapOptions.ctor
+openmeetings-core/src/main/java/org/apache/openmeetings/core/notifier/NotifierService.java,ok,ok,OK,,NotifierService.notify
+openmeetings-core/src/main/java/org/apache/openmeetings/core/util/StrongPasswordValidator.java,ok,ok,OK,,StrongPasswordValidator.hasStopWords;StrongPasswordValidator.validate
+openmeetings-core/src/main/java/org/apache/openmeetings/core/util/WebSocketHelper.java,ok,ok,OK,,WebSocketHelper.send
+openmeetings-core/src/main/java/org/apache/openmeetings/core/util/ws/WsMessageChat.java,ok,ok,OK,,WsMessageChat.ctor;WsMessageChat.getMsg
+openmeetings-core/src/main/java/org/apache/openmeetings/core/util/ws/WsMessageUser.java,ok,ok,OK,,WsMessageUser.ctor;WsMessageUser.getMsg
+openmeetings-db/src/main/java/org/apache/openmeetings/db/bind/adapter/DateAdapter.java,ok,ok,OK,,DateAdapter.marshal;DateAdapter.unmarshal
+openmeetings-db/src/main/java/org/apache/openmeetings/db/bind/adapter/FileTypeAdapter.java,ok,ok,OK,,FileTypeAdapter.unmarshal
+openmeetings-db/src/main/java/org/apache/openmeetings/db/bind/adapter/LocalDateAdapter.java,ok,ok,OK,,LocalDateAdapter.marshal;LocalDateAdapter.unmarshal
+openmeetings-db/src/main/java/org/apache/openmeetings/db/bind/adapter/RecordingStatusAdapter.java,ok,ok,OK,,RecordingStatusAdapter.marshal;RecordingStatusAdapter.unmarshal
+openmeetings-db/src/main/java/org/apache/openmeetings/db/bind/adapter/RoomElementAdapter.java,ok,ok,OK,,RoomElementAdapter.marshal;RoomElementAdapter.unmarshal
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dao/IGroupAdminDataProviderDao.java,ok,ok,OK,,IGroupAdminDataProviderDao.adminGet;IGroupAdminDataProviderDao.adminCount
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dao/basic/MailMessageDao.java,ok,ok,OK,,MailMessageDao.resetSendingStatus;MailMessageDao.resetSendingStatus_1;MailMessageDao.update;MailMessageDao.delete
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dao/calendar/AppointmentDao.java,ok,ok,OK,,AppointmentDao.update
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dao/calendar/MeetingMemberDao.java,ok,ok,OK,,MeetingMemberDao.update
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dao/file/FileItemLogDao.java,ok,ok,OK,,FileItemLogDao.add
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dao/log/ConferenceLogDao.java,ok,ok,OK,,ConferenceLogDao.add
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dao/record/RecordingChunkDao.java,ok,ok,OK,,RecordingChunkDao.start;RecordingChunkDao.stop
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dao/room/ExtraMenuDao.java,ok,ok,OK,,
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dao/server/OAuth2Dao.java,ok,ok,OK,,OAuth2Dao.getActive;OAuth2Dao.count;OAuth2Dao.update
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dao/server/SOAPLoginDao.java,ok,ok,OK,,SOAPLoginDao.addSOAPLogin;SOAPLoginDao.get;SOAPLoginDao.update
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dao/server/SessiondataDao.java,ok,ok,OK,,SessiondataDao.find;SessiondataDao.check;SessiondataDao.clearSessionTable
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dao/user/GroupUserDao.java,ok,ok,OK,,GroupUserDao.get;GroupUserDao.get_1;GroupUserDao.count;GroupUserDao.update;GroupUserDao.delete
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dao/user/UserContactDao.java,ok,ok,OK,,UserContactDao.add;UserContactDao.updateContactStatus
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dto/calendar/AppointmentDTO.java,ok,ok,OK,,AppointmentDTO.ctor;AppointmentDTO.setMeetingMembers
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dto/record/RecordingDTO.java,ok,ok,OK,,RecordingDTO.list
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dto/room/RoomFileDTO.java,ok,ok,OK,,RoomFileDTO.get;RoomFileDTO.get_1
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dto/room/Whiteboard.java,ok,ok,OK,,Whiteboard.clearSlide;Whiteboard.toJson
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dto/user/ExternalUserDTO.java,ok,ok,OK,,ExternalUserDTO.fromString
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dto/user/GroupDTO.java,ok,ok,OK,,GroupDTO.ctor;GroupDTO.list
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dto/user/OAuthUser.java,ok,ok,OK,,OAuthUser.ctor
+openmeetings-db/src/main/java/org/apache/openmeetings/db/dto/user/UserSearchResult.java,ok,ok,OK,,UserSearchResult.ctor
+openmeetings-db/src/main/java/org/apache/openmeetings/db/entity/basic/MailMessage.java,ok,ok,OK,,MailMessage.ctor;MailMessage.ctor_1;MailMessage.ctor_2
+openmeetings-db/src/main/java/org/apache/openmeetings/db/entity/basic/StreamDesc.java,ok,ok,OK,,StreamDesc.ctor
+openmeetings-db/src/main/java/org/apache/openmeetings/db/entity/basic/WebcamStreamDesc.java,ok,ok,OK,,WebcamStreamDesc.ctor
+openmeetings-db/src/main/java/org/apache/openmeetings/db/entity/basic/WsClient.java,ok,ok,OK,,WsClient.hashCode;WsClient.equals
+openmeetings-db/src/main/java/org/apache/openmeetings/db/entity/label/OmLanguage.java,ok,ok,OK,,OmLanguage.toString
+openmeetings-db/src/main/java/org/apache/openmeetings/db/entity/room/RoomPoll.java,ok,ok,OK,,RoomPoll.getAnswers
+openmeetings-db/src/main/java/org/apache/openmeetings/db/entity/server/OAuthServer.java,ok,ok,OK,,OAuthServer.toString
+openmeetings-db/src/main/java/org/apache/openmeetings/db/entity/server/RemoteSessionObject.java,ok,ok,OK,,RemoteSessionObject.fromString
+openmeetings-db/src/main/java/org/apache/openmeetings/db/manager/IWhiteboardManager.java,ok,ok,OK,,
+openmeetings-db/src/main/java/org/apache/openmeetings/db/mapper/CalendarMapper.java,ok,ok,OK,,CalendarMapper.get;CalendarMapper.get_1
+openmeetings-db/src/main/java/org/apache/openmeetings/db/mapper/RoomMapper.java,ok,ok,OK,,RoomMapper.get;RoomMapper.get_1
+openmeetings-db/src/main/java/org/apache/openmeetings/db/mapper/UserMapper.java,ok,ok,OK,,UserMapper.get
+openmeetings-db/src/main/java/org/apache/openmeetings/db/util/AuthLevelUtil.java,ok,ok,OK,,AuthLevelUtil.getRoomRight
+openmeetings-db/src/main/java/org/apache/openmeetings/db/util/DaoHelper.java,ok,ok,OK,,DaoHelper.count;DaoHelper.get;DaoHelper.search;DaoHelper.like
+openmeetings-db/src/main/java/org/apache/openmeetings/db/util/DtoHelper.java,ok,ok,OK,,DtoHelper.optEnumList
+openmeetings-db/src/main/java/org/apache/openmeetings/db/util/FormatHelper.java,ok,ok,OK,,FormatHelper.formatUser
+openmeetings-db/src/main/java/org/apache/openmeetings/db/util/LocaleHelper.java,ok,ok,OK,,LocaleHelper.validateCountry;LocaleHelper.getLocale
+openmeetings-db/src/main/java/org/apache/openmeetings/db/util/ws/RoomMessage.java,ok,ok,OK,,RoomMessage.ctor
+openmeetings-install/src/main/java/org/apache/openmeetings/backup/BackupVersion.java,ok,ok,OK,,BackupVersion.get;BackupVersion.get_1;BackupVersion.compareTo;BackupVersion.equals
+openmeetings-install/src/main/java/org/apache/openmeetings/backup/FileTree.java,ok,ok,OK,,FileTree.add;FileTree.process;FileTree.toString
+openmeetings-install/src/main/java/org/apache/openmeetings/cli/CleanupEntityUnit.java,ok,ok,OK,,CleanupEntityUnit.ctor;CleanupEntityUnit.ctor_1
+openmeetings-install/src/main/java/org/apache/openmeetings/cli/CleanupHelper.java,ok,ok,OK,,CleanupHelper.getProfileUnit;CleanupHelper.getFileUnit;CleanupHelper.getRecUnit;CleanupHelper.list
+openmeetings-install/src/main/java/org/apache/openmeetings/cli/CleanupUnit.java,ok,ok,OK,,CleanupUnit.cleanup
+openmeetings-install/src/main/java/org/apache/openmeetings/cli/MysqlPatcher.java,ok,ok,OK,,MysqlPatcher.getUrl
+openmeetings-install/src/main/java/org/apache/openmeetings/cli/OmHelpFormatter.java,ok,ok,OK,,OmHelpFormatter.renderOptions;OmHelpFormatter.printUsage
+openmeetings-install/src/main/java/org/apache/openmeetings/cli/OmOption.java,ok,ok,OK,,OmOption.ctor;OmOption.ctor_1;OmOption.isOptional;OmOption.setOptional;OmOption.setOptional_1
+openmeetings-install/src/main/java/org/apache/openmeetings/cli/OraclePatcher.java,ok,ok,OK,,OraclePatcher.getUrl
+openmeetings-service/src/main/java/org/apache/openmeetings/service/calendar/AppointmentLogic.java,ok,ok,OK,,AppointmentLogic.sendReminder;AppointmentLogic.sendReminder_1;AppointmentLogic.doScheduledMeetingReminder
+openmeetings-service/src/main/java/org/apache/openmeetings/service/calendar/caldav/handler/AbstractCalendarHandler.java,ok,ok,OK,,AbstractCalendarHandler.ctor;AbstractCalendarHandler.syncItems
+openmeetings-service/src/main/java/org/apache/openmeetings/service/calendar/caldav/handler/EtagsHandler.java,FAIL,FAIL,ENVIRONMENT,line 21: package javax.servlet.http does not exist,EtagsHandler.internalSyncItems;EtagsHandler.updateItem;EtagsHandler.deleteItem
+openmeetings-service/src/main/java/org/apache/openmeetings/service/calendar/caldav/handler/WebDAVSyncHandler.java,FAIL,FAIL,ENVIRONMENT,line 22: package javax.servlet.http does not exist,WebDAVSyncHandler.internalSyncItems
+openmeetings-service/src/main/java/org/apache/openmeetings/service/calendar/caldav/methods/SyncMethod.java,ok,ok,OK,,SyncMethod.ctor;SyncMethod.setDepth;SyncMethod.getResponseSynctoken;SyncMethod.getResponseBodyAsMultiStatus
+openmeetings-service/src/main/java/org/apache/openmeetings/service/mail/EmailManager.java,ok,ok,OK,,EmailManager.sendMail
+openmeetings-service/src/main/java/org/apache/openmeetings/service/mail/template/InvitationTemplate.java,ok,ok,OK,,InvitationTemplate.ctor
+openmeetings-service/src/main/java/org/apache/openmeetings/service/mail/template/OmTextLabel.java,ok,ok,OK,,OmTextLabel.onComponentTagBody
+openmeetings-service/src/main/java/org/apache/openmeetings/service/mail/template/RegisterUserTemplate.java,ok,ok,OK,,RegisterUserTemplate.ctor
+openmeetings-service/src/main/java/org/apache/openmeetings/service/notifier/TextNotifier.java,ok,ok,OK,,TextNotifier.notify
+openmeetings-service/src/main/java/org/apache/openmeetings/service/scheduler/AbstractJob.java,ok,ok,OK,,AbstractJob.processExpiringRecordings
+openmeetings-service/src/main/java/org/apache/openmeetings/service/scheduler/CleanupJob.java,ok,ok,OK,,CleanupJob.cleanTestSetup;CleanupJob.cleanExpiredRecordings
+openmeetings-util/src/main/java/org/apache/openmeetings/util/CalendarHelper.java,ok,ok,OK,,CalendarHelper.formatMillis
+openmeetings-util/src/main/java/org/apache/openmeetings/util/CalendarPatterns.java,ok,ok,OK,,CalendarPatterns.parseImportDate;CalendarPatterns.validDate;CalendarPatterns.validDate_1;CalendarPatterns.parseDate;CalendarPatterns.parseDateBySeparator;CalendarPatterns.parseDateWithHour
+openmeetings-util/src/main/java/org/apache/openmeetings/util/OMContextListener.java,FAIL,FAIL,ENVIRONMENT,line 24: package javax.servlet does not exist,OMContextListener.contextInitialized;OMContextListener.tryConfigure
+openmeetings-util/src/main/java/org/apache/openmeetings/util/OmVersion.java,ok,ok,OK,,OmVersion.getLine
+openmeetings-util/src/main/java/org/apache/openmeetings/util/StoredFile.java,ok,ok,OK,,StoredFile.init;StoredFile.isOffice;StoredFile.isPdf;StoredFile.isPng;StoredFile.isImage;StoredFile.isAudio;StoredFile.isVideo;StoredFile.isChart;StoredFile.isAsIs
+openmeetings-util/src/main/java/org/apache/openmeetings/util/XmlExport.java,ok,ok,OK,,XmlExport.toXml
+openmeetings-util/src/main/java/org/apache/openmeetings/util/crypt/SHA256Implementation.java,ok,ok,OK,,SHA256Implementation.verify
+openmeetings-util/src/main/java/org/apache/openmeetings/util/logging/PrometheusAspect.java,ok,ok,OK,,
+openmeetings-util/src/main/java/org/apache/openmeetings/util/mail/ByteArrayDataSource.java,ok,ok,OK,,ByteArrayDataSource.ctor;ByteArrayDataSource.getInputStream
+openmeetings-util/src/main/java/org/apache/openmeetings/util/mail/IcalHandler.java,ok,ok,OK,,IcalHandler.toString
+openmeetings-util/src/main/java/org/apache/openmeetings/util/process/ProcessHelper.java,ok,ok,OK,,ProcessHelper.exec
+openmeetings-util/src/main/java/org/apache/openmeetings/util/site/BlogIndexGenerator.java,ok,ok,OK,,BlogIndexGenerator.main
+openmeetings-web/src/main/java/org/apache/openmeetings/web/admin/AdminActionsPanel.java,FAIL,FAIL,ENVIRONMENT,line 21: package org.apache.openmeetings.web.common.confirmation does not exist,AdminActionsPanel.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/admin/AdminUserChoiceProvider.java,FAIL,FAIL,ENVIRONMENT,line 29: package org.wicketstuff.select2 does not exist,AdminUserChoiceProvider.toChoices
+openmeetings-web/src/main/java/org/apache/openmeetings/web/admin/backup/BackupUploadResourceReference.java,FAIL,FAIL,ENVIRONMENT,line 22: cannot find symbol,BackupUploadResourceReference.processFiles
+openmeetings-web/src/main/java/org/apache/openmeetings/web/admin/configurations/ConfigForm.java,FAIL,FAIL,ENVIRONMENT,line 25: cannot find symbol,ConfigForm.update;ConfigForm.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/admin/labels/AddLanguageDialog.java,FAIL,FAIL,ENVIRONMENT,line 36: package de.agilecoders.wicket.core.markup.html.bootstrap.button does not exist,AddLanguageDialog.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/admin/labels/LabelsForm.java,FAIL,FAIL,ENVIRONMENT,line 23: cannot find symbol,LabelsForm.onSaveSubmit;LabelsForm.onDeleteSubmit
+openmeetings-web/src/main/java/org/apache/openmeetings/web/admin/labels/LangForm.java,FAIL,FAIL,ENVIRONMENT,line 55: cannot find symbol,LangForm.getLanguages
+openmeetings-web/src/main/java/org/apache/openmeetings/web/admin/ldaps/LdapForm.java,FAIL,FAIL,ENVIRONMENT,line 23: cannot find symbol,LdapForm.onRefreshSubmit
+openmeetings-web/src/main/java/org/apache/openmeetings/web/admin/users/PasswordDialog.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,PasswordDialog.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/app/LabelResourceLoader.java,FAIL,FAIL,ENVIRONMENT,line 57: cannot find symbol,LabelResourceLoader.getStringByPropertyKey
+openmeetings-web/src/main/java/org/apache/openmeetings/web/app/OmAuthenticationStrategy.java,ok,ok,OK,,OmAuthenticationStrategy.decode;OmAuthenticationStrategy.defaultCrypt
+openmeetings-web/src/main/java/org/apache/openmeetings/web/app/QuickPollManager.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,QuickPollManager.vote;QuickPollManager.toJson
+openmeetings-web/src/main/java/org/apache/openmeetings/web/app/TimerService.java,FAIL,FAIL,ENVIRONMENT,line 57: cannot find symbol,TimerService.doModCheck;TimerService.doSipCheck
+openmeetings-web/src/main/java/org/apache/openmeetings/web/app/WhiteboardManager.java,FAIL,FAIL,ENVIRONMENT,line 24: cannot find symbol,WhiteboardManager.reset;WhiteboardManager.update
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/Captcha.java,FAIL,FAIL,ENVIRONMENT,line 27: cannot find symbol,Captcha.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/CommunityUserForm.java,ok,ok,OK,,CommunityUserForm.ctor
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/ErrorMessagePanel.java,ok,ok,OK,,ErrorMessagePanel.ctor
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/FormActionsPanel.java,FAIL,FAIL,ENVIRONMENT,line 21: package org.apache.openmeetings.web.common.confirmation does not exist,FormActionsPanel.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/GeneralUserForm.java,FAIL,FAIL,ENVIRONMENT,line 23: cannot find symbol,GeneralUserForm.onInitialize;GeneralUserForm.updateModelObject
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/GroupChoiceProvider.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,GroupChoiceProvider.query;GroupChoiceProvider.toChoices;GroupChoiceProvider.getIdValue
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/InvitationDialog.java,FAIL,FAIL,ENVIRONMENT,line 25: package de.agilecoders.wicket.core.markup.html.bootstrap.button does not exist,InvitationDialog.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/InvitationForm.java,FAIL,FAIL,ENVIRONMENT,line 23: cannot find symbol,InvitationForm.onInitialize;InvitationForm.onClick
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/LanguageDropDown.java,ok,ok,OK,,LanguageDropDown.ctor;LanguageDropDown.ctor_1
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/NameDialog.java,FAIL,FAIL,ENVIRONMENT,line 31: package de.agilecoders.wicket.core.markup.html.bootstrap.button does not exist,NameDialog.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/OmWebSocketPanel.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,OmWebSocketPanel.onInitialize;OmWebSocketPanel.newWsBehavior
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/PagedEntityListPanel.java,FAIL,FAIL,ENVIRONMENT,line 22: cannot find symbol,PagedEntityListPanel.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/PagingNavigatorPanel.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,PagingNavigatorPanel.ctor;PagingNavigatorPanel.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/datetime/AjaxOmDatePicker.java,FAIL,FAIL,ENVIRONMENT,line 34: cannot find symbol,AjaxOmDatePicker.newHidden
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/datetime/OmDateTimePicker.java,FAIL,FAIL,ENVIRONMENT,line 32: cannot find symbol,OmDateTimePicker.newHidden
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/menu/OmMenuItem.java,FAIL,FAIL,ENVIRONMENT,line 35: package de.agilecoders.wicket.core.markup.html.bootstrap.button.dropdown does not exist,OmMenuItem.ctor;OmMenuItem.ctor_1;OmMenuItem.ctor_2;OmMenuItem.ctor_3;OmMenuItem.ctor_4
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/tree/ConvertingErrorsDialog.java,FAIL,FAIL,ENVIRONMENT,line 40: package de.agilecoders.wicket.core.markup.html.bootstrap.dialog does not exist,ConvertingErrorsDialog.show
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/tree/FileItemPanel.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,FileItemPanel.ctor
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/tree/FolderPanel.java,FAIL,FAIL,ENVIRONMENT,line 50: package com.googlecode.wicket.jquery.core.IJQueryWidget does not exist,FolderPanel.onInitialize;FolderPanel.move;FolderPanel.onClick
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/tree/OmTreeProvider.java,FAIL,FAIL,ENVIRONMENT,line 23: cannot find symbol,OmTreeProvider.refreshRoots;OmTreeProvider.getByParent
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/upload/UploadForm.java,FAIL,FAIL,ENVIRONMENT,line 25: cannot find symbol,UploadForm.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/common/upload/UploadResourceReference.java,FAIL,FAIL,ENVIRONMENT,line 34: cannot find symbol,UploadResourceReference.getResource
+openmeetings-web/src/main/java/org/apache/openmeetings/web/data/SearchableDataProvider.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,SearchableDataProvider.setSearch
+openmeetings-web/src/main/java/org/apache/openmeetings/web/data/SearchableGroupAdminDataProvider.java,FAIL,FAIL,ENVIRONMENT,line 22: cannot find symbol,SearchableGroupAdminDataProvider.iterator;SearchableGroupAdminDataProvider.size
+openmeetings-web/src/main/java/org/apache/openmeetings/web/pages/AccessDeniedPage.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,AccessDeniedPage.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/pages/BaseNotInitedPage.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,
+openmeetings-web/src/main/java/org/apache/openmeetings/web/pages/BasePage.java,FAIL,FAIL,ENVIRONMENT,line 24: cannot find symbol,BasePage.ctor;BasePage.internalRenderHead
+openmeetings-web/src/main/java/org/apache/openmeetings/web/pages/HashPage.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,HashPage.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/pages/InvitationPasswordDialog.java,FAIL,FAIL,ENVIRONMENT,line 23: cannot find symbol,InvitationPasswordDialog.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/pages/auth/OtpDialog.java,FAIL,FAIL,ENVIRONMENT,line 28: cannot find symbol,
+openmeetings-web/src/main/java/org/apache/openmeetings/web/pages/auth/RegisterDialog.java,FAIL,FAIL,ENVIRONMENT,line 32: cannot find symbol,RegisterDialog.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/EventDetailDialog.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,EventDetailDialog.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/NicknameDialog.java,FAIL,FAIL,ENVIRONMENT,line 30: cannot find symbol,NicknameDialog.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/OmTimerBehavior.java,ok,ok,OK,,OmTimerBehavior.onBind;OmTimerBehavior.onTimer
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/RedirectMessageDialog.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,RedirectMessageDialog.onInitialize;RedirectMessageDialog.startTimer
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/RoomResourceReference.java,FAIL,FAIL,ENVIRONMENT,line 26: cannot find symbol,RoomResourceReference.getMimeType;RoomResourceReference.getFileItem
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/activities/ActivitiesPanel.java,FAIL,FAIL,ENVIRONMENT,line 22: cannot find symbol,ActivitiesPanel.add
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/menu/ActionsSubMenu.java,FAIL,FAIL,ENVIRONMENT,line 24: cannot find symbol,ActionsSubMenu.init
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/menu/ExtrasSubMenu.java,FAIL,FAIL,ENVIRONMENT,line 30: cannot find symbol,ExtrasSubMenu.init
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/menu/PollsSubMenu.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,PollsSubMenu.update;PollsSubMenu.updatePoll
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/menu/RoomInvitationForm.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,RoomInvitationForm.onInitialize;RoomInvitationForm.onClick
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/menu/SipDialerDialog.java,FAIL,FAIL,ENVIRONMENT,line 22: cannot find symbol,SipDialerDialog.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/poll/VoteDialog.java,FAIL,FAIL,ENVIRONMENT,line 22: cannot find symbol,VoteDialog.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/sidebar/RoomFilePanel.java,FAIL,FAIL,ENVIRONMENT,line 22: cannot find symbol,RoomFilePanel.updateSizes
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/sidebar/RoomSidebar.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,RoomSidebar.onInitialize;RoomSidebar.updateShowFiles;RoomSidebar.roomAction;RoomSidebar.muteRoomAction;RoomSidebar.toggleRight
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/sidebar/RoomUploadForm.java,FAIL,FAIL,ENVIRONMENT,line 22: cannot find symbol,RoomUploadForm.onInitialize;RoomUploadForm.show
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/wb/InterviewWbPanel.java,FAIL,FAIL,ENVIRONMENT,line 25: cannot find symbol,InterviewWbPanel.processWbAction
+openmeetings-web/src/main/java/org/apache/openmeetings/web/room/wb/WsMessageWb.java,FAIL,FAIL,ENVIRONMENT,line 29: cannot find symbol,WsMessageWb.ctor;WsMessageWb.getObj
+openmeetings-web/src/main/java/org/apache/openmeetings/web/user/InviteUserToRoomDialog.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,InviteUserToRoomDialog.show
+openmeetings-web/src/main/java/org/apache/openmeetings/web/user/MessageDialog.java,FAIL,FAIL,ENVIRONMENT,line 24: cannot find symbol,MessageDialog.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/user/chat/Chat.java,FAIL,FAIL,ENVIRONMENT,line 25: cannot find symbol,Chat.renderHead
+openmeetings-web/src/main/java/org/apache/openmeetings/web/user/chat/ChatPanel.java,FAIL,FAIL,ENVIRONMENT,line 25: package org.apache.wicket.authroles.authorization.strategies.role.annotations does not exist,ChatPanel.roomEnter;ChatPanel.roomExit
+openmeetings-web/src/main/java/org/apache/openmeetings/web/user/chat/ChatToolbar.java,FAIL,FAIL,ENVIRONMENT,line 25: cannot find symbol,ChatToolbar.onInitialize;ChatToolbar.update
+openmeetings-web/src/main/java/org/apache/openmeetings/web/user/dashboard/StartWidgetView.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,StartWidgetView.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/user/dashboard/WelcomeWidgetView.java,FAIL,FAIL,ENVIRONMENT,line 22: cannot find symbol,WelcomeWidgetView.ctor
+openmeetings-web/src/main/java/org/apache/openmeetings/web/user/dashboard/admin/AdminCleanupInfoDialog.java,FAIL,FAIL,ENVIRONMENT,line 29: package org.apache.openmeetings.web.common.confirmation does not exist,AdminCleanupInfoDialog.onInitialize;AdminCleanupInfoDialog.cleanup
+openmeetings-web/src/main/java/org/apache/openmeetings/web/user/profile/ChangePasswordDialog.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,ChangePasswordDialog.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/user/profile/EditProfileForm.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,EditProfileForm.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/user/profile/ToggleOtpDialog.java,FAIL,FAIL,ENVIRONMENT,line 25: cannot find symbol,ToggleOtpDialog.onInitialize;ToggleOtpDialog.show
+openmeetings-web/src/main/java/org/apache/openmeetings/web/user/profile/UserProfilePanel.java,FAIL,FAIL,ENVIRONMENT,line 22: cannot find symbol,UserProfilePanel.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/user/record/VideoPlayer.java,FAIL,FAIL,ENVIRONMENT,line 25: cannot find symbol,VideoPlayer.ctor;VideoPlayer.update
+openmeetings-web/src/main/java/org/apache/openmeetings/web/user/rooms/RoomsTabbedPanel.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,RoomsTabbedPanel.onInitialize
+openmeetings-web/src/main/java/org/apache/openmeetings/web/util/CallbackFunctionHelper.java,ok,ok,OK,,CallbackFunctionHelper.getNamedFunctionStr
+openmeetings-web/src/main/java/org/apache/openmeetings/web/util/ContactsHelper.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,ContactsHelper.addUserToContactList;ContactsHelper.acceptUserContact
+openmeetings-web/src/main/java/org/apache/openmeetings/web/util/DateLabel.java,ok,ok,OK,,DateLabel.onComponentTagBody
+openmeetings-web/src/main/java/org/apache/openmeetings/web/util/ExtendedClientProperties.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,ExtendedClientProperties.cleanUrl;ExtendedClientProperties.read
+openmeetings-web/src/main/java/org/apache/openmeetings/web/util/FileItemResourceReference.java,FAIL,FAIL,ENVIRONMENT,line 80: cannot find symbol,FileItemResourceReference.getResource;FileItemResourceReference.isAtWb
+openmeetings-web/src/main/java/org/apache/openmeetings/web/util/GroupLogoResourceReference.java,FAIL,FAIL,ENVIRONMENT,line 24: cannot find symbol,GroupLogoResourceReference.getResource
+openmeetings-web/src/main/java/org/apache/openmeetings/web/util/ProfileImageResourceReference.java,FAIL,FAIL,ENVIRONMENT,line 24: cannot find symbol,ProfileImageResourceReference.getUrl;ProfileImageResourceReference.getResource
+openmeetings-web/src/main/java/org/apache/openmeetings/web/util/RestrictiveChoiceProvider.java,FAIL,FAIL,ENVIRONMENT,line 26: package org.wicketstuff.select2 does not exist,RestrictiveChoiceProvider.toChoices
+openmeetings-web/src/main/java/org/apache/openmeetings/web/util/ThreadHelper.java,FAIL,FAIL,ENVIRONMENT,line 19: cannot find symbol,ThreadHelper.startRunnable
+openmeetings-web/src/main/java/org/apache/openmeetings/web/util/UserChoiceProvider.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,UserChoiceProvider.getUser;UserChoiceProvider.fromId
+openmeetings-web/src/main/java/org/apache/openmeetings/web/util/UserDashboard.java,FAIL,FAIL,ENVIRONMENT,line 21: cannot find symbol,UserDashboard.ctor;UserDashboard.isWidgetRssDeleted;UserDashboard.setWidgetRssDeleted;UserDashboard.isWidgetMyRoomsDeleted;UserDashboard.setWidgetMyRoomsDeleted;UserDashboard.isWidgetAdminDeleted;UserDashboard.setWidgetAdminDeleted;UserDashboard.deleteWidget;UserDashboard.addWidget
+openmeetings-webservice/src/main/java/org/apache/openmeetings/webservice/BaseWebService.java,ok,ok,OK,,BaseWebService.performCall;BaseWebService.performCall_1
+openmeetings-webservice/src/main/java/org/apache/openmeetings/webservice/ErrorWebService.java,ok,ok,OK,,ErrorWebService.get;ErrorWebService.report
+openmeetings-webservice/src/main/java/org/apache/openmeetings/webservice/WbWebService.java,ok,ok,OK,,WbWebService.uploadWb
+openmeetings-webservice/src/main/java/org/apache/openmeetings/webservice/util/AllowOriginProvider.java,ok,ok,OK,,AllowOriginProvider.handleMessage
+openmeetings-webservice/src/main/java/org/apache/openmeetings/webservice/util/AppointmentListMessageBodyWriter.java,ok,ok,OK,,AppointmentListMessageBodyWriter.isWriteable;AppointmentListMessageBodyWriter.writeTo
+openmeetings-webservice/src/main/java/org/apache/openmeetings/webservice/util/AppointmentMessageBodyReader.java,ok,ok,OK,,AppointmentMessageBodyReader.isReadable;AppointmentMessageBodyReader.readFrom
+openmeetings-webservice/src/main/java/org/apache/openmeetings/webservice/util/AppointmentMessageBodyWriter.java,ok,ok,OK,,AppointmentMessageBodyWriter.writeTo
+openmeetings-webservice/src/main/java/org/apache/openmeetings/webservice/util/AppointmentParamConverter.java,ok,ok,OK,,AppointmentParamConverter.fromString
+openmeetings-webservice/src/main/java/org/apache/openmeetings/webservice/util/DateParamConverter.java,ok,ok,OK,,DateParamConverter.get
+openmeetings-webservice/src/main/java/org/apache/openmeetings/webservice/util/OmParamConverterProvider.java,ok,ok,OK,,OmParamConverterProvider.getConverter
+openmeetings-webservice/src/main/java/org/apache/openmeetings/webservice/util/RateLimitRequestFilter.java,FAIL,FAIL,ENVIRONMENT,line 23: package javax.servlet.http does not exist,RateLimitRequestFilter.filter
+openmeetings-webservice/src/main/java/org/apache/openmeetings/webservice/util/UserMessageBodyWriter.java,ok,ok,OK,,UserMessageBodyWriter.writeTo
+openmeetings-webservice/src/main/java/org/apache/openmeetings/webservice/util/UserParamConverter.java,ok,ok,OK,,UserParamConverter.fromString

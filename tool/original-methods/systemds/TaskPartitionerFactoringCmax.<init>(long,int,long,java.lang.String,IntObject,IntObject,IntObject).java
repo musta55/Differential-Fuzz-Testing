@@ -1,4 +1,0 @@
-public TaskPartitionerFactoringCmax(long taskSize, int numThreads, long constraint, String iterVarName, IntObject fromVal, IntObject toVal, IntObject incrVal) {
-    super(taskSize, numThreads, iterVarName, fromVal, toVal, incrVal);
-    _constraint = constraint;
-}

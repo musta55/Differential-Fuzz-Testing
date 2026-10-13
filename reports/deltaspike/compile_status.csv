@@ -1,0 +1,291 @@
+File,Original,Refactored,Status,Error,Methods
+deltaspike/cdictrl/api/src/main/java/org/apache/deltaspike/cdise/api/ContextControl.java,ok,ok,OK,,
+deltaspike/cdictrl/impl-owb/src/main/java/org/apache/deltaspike/cdise/owb/OwbHelper.java,ok,ok,OK,,
+deltaspike/cdictrl/servlet/src/main/java/org/apache/deltaspike/cdise/servlet/CdiServletContextListener.java,FAIL,FAIL,ENVIRONMENT,line 32: cannot find symbol,
+deltaspike/cdictrl/tck/src/main/java/org/apache/deltaspike/cdise/tck/beans/Car.java,ok,ok,OK,,Car.onPostConstruct
+deltaspike/cdictrl/tck/src/main/java/org/apache/deltaspike/cdise/tck/beans/CarRepair.java,ok,ok,OK,,CarRepair.onPostConstruct
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/config/ConfigSnapshot.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/config/DeltaSpikeConfig.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/config/view/DefaultErrorView.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/config/view/ViewConfig.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/config/view/metadata/ConfigDescriptor.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/config/view/metadata/SimpleCallbackDescriptor.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/config/view/metadata/ViewConfigDescriptor.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/config/view/metadata/ViewConfigResolver.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/exception/control/event/ExceptionEvent.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/interpreter/ExpressionInterpreter.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/AlternativeLiteral.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/ApplicationScopedLiteral.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/ConversationScopedLiteral.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/DefaultLiteral.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/DependentScopeLiteral.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/DestroyedLiteral.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/InitializedLiteral.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/InjectableResourceLiteral.java,ok,ok,OK,,InjectableResourceLiteral.location;InjectableResourceLiteral.resourceProvider
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/MessageBundleLiteral.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/MessageContextConfigLiteral.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/ModelLiteral.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/NamedLiteral.java,ok,ok,OK,,NamedLiteral.ctor
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/NewLiteral.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/RequestScopedLiteral.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/SessionScopeLiteral.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/SingletonLiteral.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/SpecializesLiteral.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/TypedLiteral.java,ok,ok,OK,,TypedLiteral.ctor;TypedLiteral.ctor_1;TypedLiteral.value
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/literal/ViewControllerRefLiteral.java,ok,ok,OK,,ViewControllerRefLiteral.ctor;ViewControllerRefLiteral.value
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/message/Message.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/message/MessageContext.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/message/MessageResolver.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/monitoring/MonitorResultEvent.java,ok,ok,OK,,MonitorResultEvent.ctor;MonitorResultEvent.getMethodInvocations;MonitorResultEvent.getClassInvocations;MonitorResultEvent.getMethodDurations
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/projectstage/ProjectStageHolder.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/resourceloader/InjectableResourceProvider.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/api/scope/GroupedConversation.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/alternative/AlternativeBeanClassProvider.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/config/ConfigValidator.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/config/view/ConfigDescriptorValidator.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/config/view/ConfigNodeConverter.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/config/view/ConfigPreProcessor.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/config/view/InlineMetaDataTransformer.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/config/view/TargetViewConfigProvider.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/config/view/ViewConfigInheritanceStrategy.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/config/view/ViewConfigNode.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/exception/control/event/IntrospectiveExceptionEvent.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/filter/ClassFilter.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/future/FutureableStrategy.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/lock/LockedStrategy.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/scope/conversation/GroupedConversationManager.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/scope/viewaccess/ViewAccessContextManager.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/scope/window/WindowContextQuotaHandler.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/spi/throttling/ThrottledStrategy.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/AggregatedClassLoader.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/AnnotationUtils.java,ok,ok,OK,,AnnotationUtils.getQualifierHashCode
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/ArraysUtils.java,ok,ok,OK,,ArraysUtils.asSet
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/CollectionUtils.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/ContextUtils.java,ok,ok,OK,,ContextUtils.isContextActive
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/ExceptionUtils.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/ParameterUtil.java,ok,ok,OK,,ParameterUtil.getName
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/ParameterizedTypeImpl.java,ok,ok,OK,,ParameterizedTypeImpl.hashCode;ParameterizedTypeImpl.equals;ParameterizedTypeImpl.toString
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/ProxyUtils.java,ok,ok,OK,,ProxyUtils.getUnproxiedClass;ProxyUtils.getProxyAndBaseTypes;ProxyUtils.isInterfaceProxy
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/StringUtils.java,ok,ok,OK,,StringUtils.removeSpecialChars
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/bean/ImmutableBean.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/bean/ImmutableBeanWrapper.java,ok,ok,OK,,ImmutableBeanWrapper.ctor
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/bean/ImmutablePassivationCapableBeanWrapper.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/context/ContextualInstanceInfo.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/interceptor/AbstractInvocationContext.java,ok,ok,OK,,AbstractInvocationContext.getContextData
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/metadata/builder/AnnotatedConstructorImpl.java,ok,ok,OK,,AnnotatedConstructorImpl.ctor
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/metadata/builder/AnnotatedImpl.java,ok,ok,OK,,AnnotatedImpl.ctor;AnnotatedImpl.getTypeClosure
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/metadata/builder/AnnotatedMemberImpl.java,ok,ok,OK,,AnnotatedMemberImpl.ctor
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/metadata/builder/AnnotatedMethodImpl.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/metadata/builder/AnnotatedParameterImpl.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/metadata/builder/AnnotationStore.java,ok,ok,OK,,AnnotationStore.ctor
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/metadata/builder/DummyInjectionTarget.java,ok,ok,OK,,
+deltaspike/core/api/src/main/java/org/apache/deltaspike/core/util/securitymanaged/SetAccessiblePrivilegedAction.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/activation/DefaultClassDeactivator.java,ok,ok,OK,,DefaultClassDeactivator.isActivated
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/BaseConfigSource.java,ok,ok,OK,,BaseConfigSource.initOrdinal
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/ConfigHelperImpl.java,ok,ok,OK,,ConfigHelperImpl.diffConfig
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/ConfigProviderImpl.java,ok,ok,OK,,ConfigProviderImpl.releaseConfig
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/ConfigResolverContext.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/ConfigSnapshotImpl.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/DeltaSpikeConfigInfoMBean.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/EnvironmentPropertyConfigSource.java,ok,ok,OK,,EnvironmentPropertyConfigSource.getPropertyValue
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/LocalJndiConfigSource.java,ok,ok,OK,,LocalJndiConfigSource.getJndiKey;LocalJndiConfigSource.getProperties
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/MapConfigSource.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/PropertiesConfigSource.java,ok,ok,OK,,PropertiesConfigSource.getProperties
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/config/SystemPropertyConfigSource.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/crypto/CdiCipherService.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/crypto/CipherCli.java,ok,ok,OK,,CipherCli.main
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/exception/control/HandlerMethodStorage.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/exception/control/HandlerMethodStorageProducer.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/exception/control/OutboundParameterValueRedefiner.java,ok,ok,OK,,OutboundParameterValueRedefiner.redefineParameterValue
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/exclude/CustomProjectStageBeanFilter.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/exclude/GlobalAlternative.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/exclude/extension/LabelAwareGlobalAlternativeBeanClassProvider.java,ok,ok,OK,,LabelAwareGlobalAlternativeBeanClassProvider.getAlternativeMapping
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/future/FutureableInterceptor.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/future/J8PromiseCompanionTask.java,ok,ok,OK,,J8PromiseCompanionTask.run
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/interceptor/GlobalInterceptorWrapper.java,ok,ok,OK,,GlobalInterceptorWrapper.ctor
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/interceptor/interdyn/AnnotationRule.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/interpreter/PropertyExpressionInterpreter.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/jmx/AttributeAccessor.java,ok,ok,OK,,AttributeAccessor.ctor
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/jmx/BroadcasterProducer.java,ok,ok,OK,,BroadcasterProducer.jmxBroadcaster
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/jmx/JmxBroadcasterLifecycle.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/jmx/Operation.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/lock/DefaultLockedStrategy.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/lock/LockedInterceptor.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/message/DefaultLocaleResolver.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/message/DefaultMessageInterpolator.java,ok,ok,OK,,DefaultMessageInterpolator.interpolate
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/message/MessageBundleContext.java,ok,ok,OK,,MessageBundleContext.reset
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/resourceloader/ResourceLoaderExtension.java,ok,ok,OK,,ResourceLoaderExtension.addResourceLoaders
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/AbstractBeanHolder.java,ok,ok,OK,,AbstractBeanHolder.forceNewStorage
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/conversation/ConversationBeanHolder.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/conversation/ConversationKey.java,ok,ok,OK,,ConversationKey.ctor;ConversationKey.getQualifiers;ConversationKey.equals;ConversationKey.hashCode;ConversationKey.toString
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/conversation/InjectableGroupedConversation.java,ok,ok,OK,,InjectableGroupedConversation.close
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/conversation/InjectableGroupedConversationManager.java,ok,ok,OK,,InjectableGroupedConversationManager.getConversationManager
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/viewaccess/InjectableViewAccessContextManager.java,ok,ok,OK,,InjectableViewAccessContextManager.close
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/viewaccess/ViewAccessBeanAccessHistory.java,ok,ok,OK,,ViewAccessBeanAccessHistory.getAccessedBeans
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/viewaccess/ViewAccessBeanHolder.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/viewaccess/ViewAccessContextArtifactProducer.java,ok,ok,OK,,ViewAccessContextArtifactProducer.getViewAccessContextManager
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/viewaccess/ViewAccessViewHistory.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/window/DefaultWindowContextQuotaHandler.java,ok,ok,OK,,DefaultWindowContextQuotaHandler.checkWindowContextQuota
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/window/InjectableWindowContext.java,ok,ok,OK,,InjectableWindowContext.getWindowContext
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/window/WindowContextQuotaHandlerCache.java,ok,ok,OK,,WindowContextQuotaHandlerCache.cacheWindowId;WindowContextQuotaHandlerCache.cleanup
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/scope/window/WindowIdHolder.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/throttling/DefaultThrottledStrategy.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/throttling/Invoker.java,ok,ok,OK,,Invoker.invoke;Invoker.onInterruption
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/throttling/ThrottledInterceptor.java,ok,ok,OK,,
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/util/AnnotatedMethods.java,ok,ok,OK,,AnnotatedMethods.findMethod
+deltaspike/core/impl/src/main/java/org/apache/deltaspike/core/impl/util/AnnotationInstanceUtils.java,ok,ok,OK,,AnnotationInstanceUtils.getPriorityAnnotationInstance
+deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/config/ConfigExample.java,ok,ok,OK,,ConfigExample.main
+deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/config/CustomPropertyFileConfig.java,ok,ok,OK,,
+deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/config/SettingsBean.java,ok,ok,OK,,
+deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/echo/DefaultEchoService.java,ok,ok,OK,,
+deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/echo/EchoService.java,ok,ok,OK,,
+deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/echo/NoEchoService.java,ok,ok,OK,,
+deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/echo/ToUpperCaseEchoService.java,ok,ok,OK,,
+deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/metadata/NamingConventionAwareMetadataFilter.java,ok,ok,OK,,NamingConventionAwareMetadataFilter.ensureNamingConvention
+deltaspike/examples/jse-examples/src/main/java/org/apache/deltaspike/example/optional/OptionalService.java,ok,ok,OK,,
+deltaspike/examples/jsf-examples/src/main/java/org/apache/deltaspike/example/message/ControllerView.java,FAIL,FAIL,ENVIRONMENT,line 39: cannot find symbol,
+deltaspike/examples/jsf-examples/src/main/java/org/apache/deltaspike/example/scope/ApplicationScopedBean.java,FAIL,FAIL,ENVIRONMENT,line 30: cannot find symbol,
+deltaspike/examples/jsf-examples/src/main/java/org/apache/deltaspike/example/scope/RequestScopedBean.java,FAIL,FAIL,ENVIRONMENT,line 30: cannot find symbol,
+deltaspike/examples/jsf-examples/src/main/java/org/apache/deltaspike/example/scope/SessionScopedBean.java,FAIL,FAIL,ENVIRONMENT,line 31: cannot find symbol,
+deltaspike/examples/jsf-examples/src/main/java/org/apache/deltaspike/example/scope/ViewScopedBean.java,FAIL,FAIL,ENVIRONMENT,line 22: package javax.faces.bean does not exist,
+deltaspike/examples/jsf-playground/src/main/java/org/apache/deltaspike/playground/windowhandling/ViewActionController.java,FAIL,FAIL,ENVIRONMENT,line 24: package javax.faces.context does not exist,ViewActionController.action;ViewActionController.linkAction
+deltaspike/examples/scheduler-playground/src/main/java/org/apache/deltaspike/example/scheduler/SimpleSchedulerExample.java,ok,ok,OK,,SimpleSchedulerExample.main
+deltaspike/examples/scheduler-playground/src/main/java/org/apache/deltaspike/example/scheduler/SimpleSchedulerJob1.java,ok,ok,OK,,
+deltaspike/examples/security-requested-page-after-login-cdi/src/main/java/org/apache/deltaspike/example/security/requestedpage/cdi/AuthenticationListener.java,FAIL,FAIL,ENVIRONMENT,line 34: package UserEvent does not exist,AuthenticationListener.handleLoggedIn;AuthenticationListener.handleFailed
+deltaspike/examples/security-requested-page-after-login-cdi/src/main/java/org/apache/deltaspike/example/security/requestedpage/cdi/LoggedInAccessDecisionVoter.java,FAIL,FAIL,ENVIRONMENT,line 28: package javax.faces.context does not exist,LoggedInAccessDecisionVoter.checkPermission
+deltaspike/modules/data/api/src/main/java/org/apache/deltaspike/data/api/QueryResult.java,FAIL,FAIL,ENVIRONMENT,line 23: package javax.persistence does not exist,
+deltaspike/modules/data/api/src/main/java/org/apache/deltaspike/data/api/mapping/QueryInOutMapper.java,ok,ok,OK,,
+deltaspike/modules/data/api/src/main/java/org/apache/deltaspike/data/spi/DelegateQueryHandler.java,ok,ok,OK,,
+deltaspike/modules/data/api/src/main/java/org/apache/deltaspike/data/spi/QueryInvocationContext.java,FAIL,FAIL,ENVIRONMENT,line 21: package javax.persistence does not exist,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/audit/PrePersistAuditListener.java,ok,ok,OK,,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/builder/MethodExpressionException.java,ok,ok,OK,,MethodExpressionException.getMessage
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/builder/QueryBuilder.java,FAIL,FAIL,ENVIRONMENT,line 25: package javax.persistence does not exist,QueryBuilder.executeQuery
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/builder/part/AndQueryPart.java,ok,ok,OK,,AndQueryPart.buildQuery
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/builder/part/BasePropertyQueryPart.java,ok,ok,OK,,BasePropertyQueryPart.validate
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/builder/part/OrQueryPart.java,ok,ok,OK,,OrQueryPart.build
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/builder/postprocessor/CountQueryPostProcessor.java,FAIL,FAIL,ENVIRONMENT,line 42: cannot find symbol,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/builder/postprocessor/LockModePostProcessor.java,FAIL,FAIL,ENVIRONMENT,line 21: package javax.persistence does not exist,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/builder/postprocessor/MaxResultPostProcessor.java,FAIL,FAIL,ENVIRONMENT,line 37: cannot find symbol,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/Between.java,FAIL,FAIL,ENVIRONMENT,line 24: package javax.persistence.criteria does not exist,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/In.java,FAIL,FAIL,ENVIRONMENT,line 24: package javax.persistence.criteria does not exist,In.build
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/IsNotEmpty.java,FAIL,FAIL,ENVIRONMENT,line 33: cannot find symbol,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/IsNotNull.java,FAIL,FAIL,ENVIRONMENT,line 32: cannot find symbol,IsNotNull.build
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/IsNull.java,FAIL,FAIL,ENVIRONMENT,line 32: cannot find symbol,IsNull.build
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/LessThan.java,FAIL,FAIL,ENVIRONMENT,line 32: cannot find symbol,LessThan.build
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/LessThanOrEqual.java,FAIL,FAIL,ENVIRONMENT,line 32: cannot find symbol,LessThanOrEqual.build
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/NoValueBuilder.java,FAIL,FAIL,ENVIRONMENT,line 21: package javax.persistence.metamodel does not exist,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/predicate/OrBuilder.java,FAIL,FAIL,ENVIRONMENT,line 42: cannot find symbol,OrBuilder.build
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/AttributeQuerySelection.java,FAIL,FAIL,ENVIRONMENT,line 22: package javax.persistence.criteria does not exist,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/SingularAttributeSelection.java,FAIL,FAIL,ENVIRONMENT,line 28: cannot find symbol,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/numeric/CountDistinct.java,FAIL,FAIL,ENVIRONMENT,line 22: package javax.persistence.criteria does not exist,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/numeric/Max.java,FAIL,FAIL,ENVIRONMENT,line 32: cannot find symbol,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/numeric/Modulo.java,FAIL,FAIL,ENVIRONMENT,line 34: cannot find symbol,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/numeric/Sum.java,FAIL,FAIL,ENVIRONMENT,line 32: cannot find symbol,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/strings/SubstringFromTo.java,FAIL,FAIL,ENVIRONMENT,line 32: cannot find symbol,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/temporal/CurrentDate.java,FAIL,FAIL,ENVIRONMENT,line 34: cannot find symbol,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/temporal/CurrentTime.java,FAIL,FAIL,ENVIRONMENT,line 34: cannot find symbol,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/criteria/selection/temporal/CurrentTimestamp.java,FAIL,FAIL,ENVIRONMENT,line 34: cannot find symbol,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/graph/EntityGraphException.java,ok,ok,OK,,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/handler/AbstractDelegateQueryHandler.java,FAIL,FAIL,ENVIRONMENT,line 22: package javax.persistence does not exist,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/handler/JpaQueryPostProcessor.java,FAIL,FAIL,ENVIRONMENT,line 26: cannot find symbol,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/handler/QueryStringPostProcessor.java,ok,ok,OK,,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/meta/EntityMetadata.java,ok,ok,OK,,EntityMetadata.ctor;EntityMetadata.ctor_1;EntityMetadata.ctor_2
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/meta/EntityMetadataInitializer.java,ok,ok,OK,,EntityMetadataInitializer.extractFromType
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/meta/RepositoryMetadata.java,ok,ok,OK,,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/meta/RepositoryMetadataHandler.java,ok,ok,OK,,RepositoryMetadataHandler.lookupMetadata
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/meta/RepositoryMethodPrefix.java,ok,ok,OK,,RepositoryMethodPrefix.isDelete
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/param/IndexedParameter.java,FAIL,FAIL,ENVIRONMENT,line 38: cannot find symbol,IndexedParameter.is
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/param/NamedParameter.java,FAIL,FAIL,ENVIRONMENT,line 38: cannot find symbol,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/param/ToUpperStringParameterUpdate.java,ok,ok,OK,,ToUpperStringParameterUpdate.newParamValue
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/FieldProperty.java,ok,ok,OK,,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/FieldPropertyImpl.java,ok,ok,OK,,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/MethodProperty.java,ok,ok,OK,,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/MethodPropertyImpl.java,ok,ok,OK,,MethodPropertyImpl.ctor
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/Property.java,ok,ok,OK,,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/query/NamedPropertyCriteria.java,ok,ok,OK,,NamedPropertyCriteria.methodMatches
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/query/PropertyCriteria.java,ok,ok,OK,,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/query/PropertyQueries.java,ok,ok,OK,,PropertyQueries.createQuery
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/query/PropertyQuery.java,ok,ok,OK,,PropertyQuery.getResultList
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/property/query/TypedPropertyCriteria.java,ok,ok,OK,,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/tx/InvocationContextWrapper.java,ok,ok,OK,,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/util/QueryUtils.java,ok,ok,OK,,QueryUtils.nullSafeValue
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/util/bean/BeanDestroyable.java,ok,ok,OK,,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/util/bean/DependentProviderDestroyable.java,ok,ok,OK,,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/util/jpa/EclipseLinkEjbQueryStringExtractor.java,ok,ok,OK,,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/util/jpa/OpenJpaPersistenceUnitUtilDelegate.java,FAIL,FAIL,ENVIRONMENT,line 24: package javax.persistence does not exist,OpenJpaPersistenceUnitUtilDelegate.getIdentifier
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/util/jpa/OpenJpaQueryStringExtractor.java,ok,ok,OK,,
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/util/jpa/PersistenceUnitUtilDelegateFactory.java,FAIL,FAIL,ENVIRONMENT,line 22: package javax.persistence does not exist,PersistenceUnitUtilDelegateFactory.get
+deltaspike/modules/data/impl/src/main/java/org/apache/deltaspike/data/impl/util/jpa/QueryStringExtractorFactory.java,FAIL,FAIL,ENVIRONMENT,line 33: cannot find symbol,QueryStringExtractorFactory.extract
+deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/api/transaction/TransactionHelper.java,ok,ok,OK,,
+deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/descriptor/xml/AbstractEntityDescriptor.java,ok,ok,OK,,
+deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/descriptor/xml/AbstractEntityHierarchyBuilder.java,ok,ok,OK,,AbstractEntityHierarchyBuilder.buildHierarchy
+deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/descriptor/xml/Descriptor.java,ok,ok,OK,,
+deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/descriptor/xml/EntityDescriptor.java,ok,ok,OK,,EntityDescriptor.toString
+deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/descriptor/xml/PersistenceUnitDescriptorProvider.java,ok,ok,OK,,PersistenceUnitDescriptorProvider.primaryKeyFields;PersistenceUnitDescriptorProvider.versionField;PersistenceUnitDescriptorProvider.primaryKeyIdClass
+deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/entitymanager/ActiveEntityManagerHolder.java,FAIL,FAIL,ENVIRONMENT,line 31: cannot find symbol,
+deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/entitymanager/PersistenceConfigurationProvider.java,ok,ok,OK,,
+deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/entitymanager/QualifierBackedEntityManagerResolver.java,FAIL,FAIL,ENVIRONMENT,line 44: cannot find symbol,QualifierBackedEntityManagerResolver.resolveEntityManager;QualifierBackedEntityManagerResolver.resolveEntityManagerBeans
+deltaspike/modules/jpa/api/src/main/java/org/apache/deltaspike/jpa/spi/transaction/TransactionStrategy.java,ok,ok,OK,,
+deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/descriptor/xml/PersistenceUnitDescriptorInitExtension.java,ok,ok,OK,,PersistenceUnitDescriptorInitExtension.beforeBeanDiscovery
+deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/entitymanager/DefaultEntityManagerHolder.java,FAIL,FAIL,ENVIRONMENT,line 35: cannot find symbol,
+deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/entitymanager/EntityManagerMetadata.java,FAIL,FAIL,ENVIRONMENT,line 28: package javax.persistence does not exist,EntityManagerMetadata.readFrom
+deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/entitymanager/EntityManagerRef.java,FAIL,FAIL,ENVIRONMENT,line 28: cannot find symbol,EntityManagerRef.release
+deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/transaction/ContainerManagedTransactionStrategy.java,ok,ok,OK,,
+deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/transaction/ManagedUserTransactionResolver.java,FAIL,FAIL,ENVIRONMENT,line 23: cannot find symbol,
+deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/transaction/context/EntityManagerEntry.java,FAIL,FAIL,ENVIRONMENT,line 31: cannot find symbol,EntityManagerEntry.equals
+deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/transaction/context/TransactionBeanEntry.java,ok,ok,OK,,
+deltaspike/modules/jpa/impl/src/main/java/org/apache/deltaspike/jpa/impl/transaction/context/TransactionBeanStorage.java,ok,ok,OK,,TransactionBeanStorage.endTransactionScope
+deltaspike/modules/jsf/api/src/main/java/org/apache/deltaspike/jsf/api/literal/FolderLiteral.java,ok,ok,OK,,FolderLiteral.ctor;FolderLiteral.equals
+deltaspike/modules/jsf/api/src/main/java/org/apache/deltaspike/jsf/spi/scope/window/ClientWindowConfig.java,FAIL,FAIL,ENVIRONMENT,line 83: cannot find symbol,
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/component/window/DisableClientWindowComponent.java,FAIL,FAIL,ENVIRONMENT,line 21: package javax.faces.component does not exist,
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/component/window/WindowIdComponent.java,FAIL,FAIL,ENVIRONMENT,line 21: package javax.faces.component does not exist,
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/config/view/AbstractConfigNode.java,ok,ok,OK,,
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/config/view/AbstractPathConfigDescriptor.java,ok,ok,OK,,AbstractPathConfigDescriptor.findCallbackDescriptor
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/config/view/FolderConfigNode.java,ok,ok,OK,,FolderConfigNode.ctor
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/config/view/navigation/NavigationParameterInterceptor.java,ok,ok,OK,,NavigationParameterInterceptor.addParameter
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/config/view/navigation/NavigationParameterListInterceptor.java,ok,ok,OK,,NavigationParameterListInterceptor.addParameterList
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/injection/AbstractBeanStorage.java,ok,ok,OK,,AbstractBeanStorage.add;AbstractBeanStorage.cleanup
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/injection/ConverterWrapper.java,FAIL,FAIL,ENVIRONMENT,line 21: package javax.faces.component does not exist,ConverterWrapper.resolveInstanceForClass
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/injection/RequestDependentBeanStorage.java,ok,ok,OK,,
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/injection/ValidatorWrapper.java,FAIL,FAIL,ENVIRONMENT,line 23: package javax.faces.validator does not exist,ValidatorWrapper.resolveInstanceForClass
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/injection/proxy/ConverterAndValidatorProxyFactory.java,FAIL,FAIL,ENVIRONMENT,line 30: package javax.faces.component does not exist,ConverterAndValidatorProxyFactory.getDelegateMethods;ConverterAndValidatorProxyFactory.getAdditionalInterfacesToImplement
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/injection/proxy/ConverterInvocationHandler.java,ok,ok,OK,,
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/injection/proxy/ValidatorInvocationHandler.java,ok,ok,OK,,
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/listener/phase/JsfRequestLifecyclePhaseListener.java,FAIL,FAIL,ENVIRONMENT,line 26: package javax.faces.event does not exist,JsfRequestLifecyclePhaseListener.beforePhase;JsfRequestLifecyclePhaseListener.afterPhase
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/listener/request/DeltaSpikeFacesContextFactory.java,FAIL,FAIL,ENVIRONMENT,line 25: package javax.faces.context does not exist,DeltaSpikeFacesContextFactory.lazyInit;DeltaSpikeFacesContextFactory.init
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/listener/request/DeltaSpikeLifecycleFactoryWrapper.java,FAIL,FAIL,ENVIRONMENT,line 29: package javax.faces.lifecycle does not exist,DeltaSpikeLifecycleFactoryWrapper.ctor;DeltaSpikeLifecycleFactoryWrapper.getLifecycle
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/listener/system/JsfSystemEventBroadcaster.java,FAIL,FAIL,ENVIRONMENT,line 22: package javax.faces.event does not exist,JsfSystemEventBroadcaster.processEvent
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/message/JsfAwareLocaleResolver.java,FAIL,FAIL,ENVIRONMENT,line 25: package javax.faces.component does not exist,JsfAwareLocaleResolver.getLocale
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/message/JsfMessageResolver.java,FAIL,FAIL,ENVIRONMENT,line 25: package javax.faces.application does not exist,JsfMessageResolver.getMessageSources
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/navigation/DeltaSpikeNavigationHandlerWrapper.java,FAIL,FAIL,ENVIRONMENT,line 21: package javax.faces.application does not exist,DeltaSpikeNavigationHandlerWrapper.handleNavigation;DeltaSpikeNavigationHandlerWrapper.getNavigationCases;DeltaSpikeNavigationHandlerWrapper.getNavigationCase
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/resource/DeltaSpikeResource.java,FAIL,FAIL,ENVIRONMENT,line 21: package javax.faces.application does not exist,DeltaSpikeResource.getContentType;DeltaSpikeResource.getLibraryName;DeltaSpikeResource.getResourceName;DeltaSpikeResource.setContentType;DeltaSpikeResource.setLibraryName;DeltaSpikeResource.setResourceName;DeltaSpikeResource.toString
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/scope/window/ClientWindowAdapter.java,FAIL,FAIL,ENVIRONMENT,line 22: package javax.faces.lifecycle does not exist,ClientWindowAdapter.getId
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/scope/window/strategy/LazyWindowStrategy.java,FAIL,FAIL,ENVIRONMENT,line 35: cannot find symbol,LazyWindowStrategy.getOrCreateWindowId;LazyWindowStrategy.createQueryURLParameters
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/scope/window/strategy/NoneWindowStrategy.java,FAIL,FAIL,ENVIRONMENT,line 30: cannot find symbol,
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/token/PostRequestTokenManager.java,ok,ok,OK,,PostRequestTokenManager.isValidRequest
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/token/PostRequestTokenMarker.java,ok,ok,OK,,
+deltaspike/modules/jsf/impl/src/main/java/org/apache/deltaspike/jsf/impl/util/ViewControllerUtils.java,ok,ok,OK,,ViewControllerUtils.executeViewControllerCallback
+deltaspike/modules/partial-bean/impl/src/main/java/org/apache/deltaspike/partialbean/impl/DeltaSpikePartialProducerLifecycle.java,ok,ok,OK,,DeltaSpikePartialProducerLifecycle.ctor;DeltaSpikePartialProducerLifecycle.create
+deltaspike/modules/partial-bean/impl/src/main/java/org/apache/deltaspike/partialbean/impl/PartialBeanDescriptor.java,ok,ok,OK,,PartialBeanDescriptor.ctor;PartialBeanDescriptor.ctor_1;PartialBeanDescriptor.ctor_2
+deltaspike/modules/partial-bean/impl/src/main/java/org/apache/deltaspike/partialbean/impl/PartialBeanProxyFactory.java,ok,ok,OK,,PartialBeanProxyFactory.getDelegateMethods
+deltaspike/modules/proxy/impl-asm/src/main/java/org/apache/deltaspike/proxy/impl/ClassDefiner.java,ok,ok,OK,,ClassDefiner.defineClassClassLoader
+deltaspike/modules/scheduler/api/src/main/java/org/apache/deltaspike/scheduler/spi/SchedulerControl.java,ok,ok,OK,,
+deltaspike/modules/scheduler/impl/src/main/java/org/apache/deltaspike/scheduler/impl/CdiAwareJobFactory.java,ok,ok,OK,,CdiAwareJobFactory.newJob
+deltaspike/modules/scheduler/impl/src/main/java/org/apache/deltaspike/scheduler/impl/JobAdapter.java,ok,ok,OK,,
+deltaspike/modules/scheduler/impl/src/main/java/org/apache/deltaspike/scheduler/impl/JobQuartzScheduler.java,ok,ok,OK,,
+deltaspike/modules/scheduler/impl/src/main/java/org/apache/deltaspike/scheduler/impl/QuartzSchedulerProducer.java,ok,ok,OK,,
+deltaspike/modules/scheduler/impl/src/main/java/org/apache/deltaspike/scheduler/impl/RunnableQuartzScheduler.java,ok,ok,OK,,
+deltaspike/modules/scheduler/impl/src/main/java/org/apache/deltaspike/scheduler/impl/SchedulerProducer.java,ok,ok,OK,,SchedulerProducer.produceScheduler
+deltaspike/modules/security/api/src/main/java/org/apache/deltaspike/security/api/SecurityException.java,ok,ok,OK,,
+deltaspike/modules/security/api/src/main/java/org/apache/deltaspike/security/api/authorization/AccessDeniedException.java,ok,ok,OK,,
+deltaspike/modules/security/api/src/main/java/org/apache/deltaspike/security/api/authorization/ErrorViewAwareAccessDeniedException.java,ok,ok,OK,,
+deltaspike/modules/security/api/src/main/java/org/apache/deltaspike/security/api/authorization/SecurityDefinitionException.java,ok,ok,OK,,
+deltaspike/modules/security/api/src/main/java/org/apache/deltaspike/security/spi/authorization/EditableAccessDecisionVoterContext.java,ok,ok,OK,,
+deltaspike/modules/security/api/src/main/java/org/apache/deltaspike/security/spi/authorization/SecurityStrategy.java,ok,ok,OK,,
+deltaspike/modules/security/impl/src/main/java/org/apache/deltaspike/security/impl/authorization/AccessDeniedExceptionBroadcaster.java,ok,ok,OK,,
+deltaspike/modules/security/impl/src/main/java/org/apache/deltaspike/security/impl/authorization/SkipInternalProcessingException.java,ok,ok,OK,,
+deltaspike/modules/security/impl/src/main/java/org/apache/deltaspike/security/impl/extension/AuthorizationParameter.java,ok,ok,OK,,AuthorizationParameter.ctor;AuthorizationParameter.matches;AuthorizationParameter.toString
+deltaspike/modules/servlet/impl/src/main/java/org/apache/deltaspike/servlet/impl/config/ServletConfigSource.java,ok,ok,OK,,ServletConfigSource.ctor
+deltaspike/modules/servlet/impl/src/main/java/org/apache/deltaspike/servlet/impl/event/EventBridgeContextListener.java,ok,ok,OK,,
+deltaspike/modules/servlet/impl/src/main/java/org/apache/deltaspike/servlet/impl/produce/RequestResponseHolderListener.java,ok,ok,OK,,RequestResponseHolderListener.requestInitialized;RequestResponseHolderListener.requestDestroyed
+deltaspike/modules/servlet/impl/src/main/java/org/apache/deltaspike/servlet/impl/produce/ServletContextHolder.java,ok,ok,OK,,
