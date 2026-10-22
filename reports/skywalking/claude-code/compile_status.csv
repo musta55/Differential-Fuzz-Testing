@@ -1,0 +1,37 @@
+File,Original,Refactored,Status,Error,Methods
+apm-protocol/apm-network/src/main/java/org/apache/skywalking/oap/server/network/trace/component/command/BaseCommand.java,ok,ok,OK,,BaseCommand.ctor
+apm-protocol/apm-network/src/main/java/org/apache/skywalking/oap/server/network/trace/component/command/ProfileTaskCommand.java,ok,ok,OK,,ProfileTaskCommand.deserialize
+apm-protocol/apm-network/src/main/java/org/apache/skywalking/oap/server/network/trace/component/command/UnsupportedCommandException.java,ok,ok,OK,,
+apm-webapp/src/main/java/org/apache/skywalking/oap/server/webapp/Configuration.java,ok,ok,OK,,Configuration.port;Configuration.oapServices;Configuration.zipkinServices
+oap-server/microbench/src/main/java/org/apache/skywalking/oap/server/microbench/library/datacarrier/common/AtomicRangeIntegerBenchmark.java,FAIL,FAIL,ENVIRONMENT,line 22: package org.apache.skywalking.oap.server.microbench.base does not exist,AtomicRangeIntegerBenchmark.testGetAndIncrement
+oap-server/microbench/src/main/java/org/apache/skywalking/oap/server/microbench/library/datacarrier/common/AtomicRangeIntegerV1.java,ok,ok,OK,,AtomicRangeIntegerV1.intValue;AtomicRangeIntegerV1.longValue;AtomicRangeIntegerV1.floatValue;AtomicRangeIntegerV1.doubleValue
+oap-server/microbench/src/main/java/org/apache/skywalking/oap/server/microbench/library/datacarrier/common/AtomicRangeIntegerV2.java,ok,ok,OK,,AtomicRangeIntegerV2.getAndIncrement
+oap-server/mqe-rt/src/main/java/org/apache/skywalking/mqe/rt/operation/BinaryOp.java,ok,ok,OK,,BinaryOp.scalarBinaryOp
+oap-server/mqe-rt/src/main/java/org/apache/skywalking/mqe/rt/operation/CompareOp.java,ok,ok,OK,,CompareOp.scalarCompareOp
+oap-server/mqe-rt/src/main/java/org/apache/skywalking/mqe/rt/operation/LogicalFunctionOp.java,ok,ok,OK,,LogicalFunctionOp.viewAsSeq
+oap-server/mqe-rt/src/main/java/org/apache/skywalking/mqe/rt/operation/MathematicalFunctionOp.java,ok,ok,OK,,MathematicalFunctionOp.doFunction0Op;MathematicalFunctionOp.doFunction1Op
+oap-server/mqe-rt/src/main/java/org/apache/skywalking/mqe/rt/operation/TrendOp.java,ok,ok,OK,,TrendOp.calculateIncrease;TrendOp.calculateRate
+oap-server/mqe-rt/src/main/java/org/apache/skywalking/mqe/rt/operation/aggregatelabels/AvgAggregateLabelsFunc.java,ok,ok,OK,,AvgAggregateLabelsFunc.combine
+oap-server/mqe-rt/src/main/java/org/apache/skywalking/mqe/rt/operation/aggregatelabels/MaxAggregateLabelsFunc.java,ok,ok,OK,,MaxAggregateLabelsFunc.combine
+oap-server/mqe-rt/src/main/java/org/apache/skywalking/mqe/rt/operation/aggregatelabels/MinAggregateLabelsFunc.java,ok,ok,OK,,MinAggregateLabelsFunc.combine
+oap-server/mqe-rt/src/main/java/org/apache/skywalking/mqe/rt/operation/aggregatelabels/SumAggregateLabelsFunc.java,ok,ok,OK,,SumAggregateLabelsFunc.combine
+oap-server/server-configuration/configuration-api/src/main/java/org/apache/skywalking/oap/server/configuration/api/ConfigWatcherRegister.java,ok,ok,OK,,ConfigWatcherRegister.notifySingleValue;ConfigWatcherRegister.notifyGroupValues
+oap-server/server-configuration/configuration-api/src/main/java/org/apache/skywalking/oap/server/configuration/api/ConfigurationModule.java,ok,ok,OK,,
+oap-server/server-configuration/configuration-apollo/src/main/java/org/apache/skywalking/oap/server/configuration/apollo/ApolloConfigurationProvider.java,ok,ok,OK,,ApolloConfigurationProvider.initConfigReader
+oap-server/server-configuration/configuration-etcd/src/main/java/org/apache/skywalking/oap/server/configuration/etcd/EtcdConfigurationProvider.java,ok,FAIL,REFACTORING_BROKEN,line 32: cannot find symbol,
+oap-server/server-configuration/configuration-etcd/src/main/java/org/apache/skywalking/oap/server/configuration/etcd/EtcdServerSettings.java,ok,ok,OK,,EtcdServerSettings.getNamespace
+oap-server/server-configuration/configuration-k8s-configmap/src/main/java/org/apache/skywalking/oap/server/configuration/configmap/ConfigmapConfigurationProvider.java,ok,ok,OK,,ConfigmapConfigurationProvider.newConfigCreator
+oap-server/server-configuration/configuration-k8s-configmap/src/main/java/org/apache/skywalking/oap/server/configuration/configmap/ConfigmapConfigurationWatcherRegister.java,ok,FAIL,REFACTORING_BROKEN,line 44: log has private access in FetchingConfigWatcherRegister,ConfigmapConfigurationWatcherRegister.readGroupConfig
+oap-server/server-configuration/configuration-k8s-configmap/src/main/java/org/apache/skywalking/oap/server/configuration/configmap/ConfigurationConfigmapInformer.java,ok,ok,OK,,ConfigurationConfigmapInformer.configMapData
+oap-server/server-configuration/configuration-zookeeper/src/main/java/org/apache/skywalking/oap/server/configuration/zookeeper/ZookeeperConfigurationProvider.java,ok,ok,OK,,
+oap-server/server-configuration/grpc-configuration-sync/src/main/java/org/apache/skywalking/oap/server/configuration/grpc/RemoteEndpointSettings.java,ok,ok,OK,,RemoteEndpointSettings.toString
+oap-server/server-core/src/main/java/org/apache/skywalking/oap/server/core/analysis/DisableRegister.java,ok,ok,OK,,DisableRegister.notify
+oap-server/server-core/src/main/java/org/apache/skywalking/oap/server/core/analysis/DispatcherDetectorListener.java,ok,ok,OK,,DispatcherDetectorListener.addIfAsSourceDispatcher
+oap-server/server-core/src/main/java/org/apache/skywalking/oap/server/core/analysis/TimeBucket.java,ok,ok,OK,,TimeBucket.getTimestamp;TimeBucket.getTimestamp_1;TimeBucket.getTimeBucket
+oap-server/server-core/src/main/java/org/apache/skywalking/oap/server/core/analysis/manual/process/ProcessDispatcher.java,ok,FAIL,REFACTORING_BROKEN,line 40: cannot find symbol,ProcessDispatcher.dispatch
+oap-server/server-core/src/main/java/org/apache/skywalking/oap/server/core/analysis/meter/Meter.java,ok,ok,OK,,Meter.initMeta;Meter.getMeta
+oap-server/server-core/src/main/java/org/apache/skywalking/oap/server/core/analysis/metrics/MaxDoubleMetrics.java,ok,ok,OK,,MaxDoubleMetrics.combine
+oap-server/server-core/src/main/java/org/apache/skywalking/oap/server/core/analysis/metrics/expression/GreaterEqualMatch.java,ok,FAIL,REFACTORING_BROKEN,"line 45: method match(Long,Long) is already defined in class GreaterEqualMatch",GreaterEqualMatch.match
+oap-server/server-core/src/main/java/org/apache/skywalking/oap/server/core/analysis/metrics/expression/NotContainMatch.java,ok,ok,OK,,NotContainMatch.match
+oap-server/server-core/src/main/java/org/apache/skywalking/oap/server/core/analysis/worker/RecordStreamProcessor.java,ok,FAIL,REFACTORING_BROKEN,line 59: cannot find symbol,RecordStreamProcessor.create
+oap-server/server-core/src/main/java/org/apache/skywalking/oap/server/core/cluster/ClusterCoordinator.java,ok,FAIL,REFACTORING_BROKEN,line 41: cannot find symbol,ClusterCoordinator.notifyWatchers

@@ -1,0 +1,42 @@
+File,Original,Refactored,Status,Error,Methods
+apis/atmos/src/main/java/org/jclouds/atmos/blobstore/functions/BlobMetadataToObject.java,ok,FAIL,REFACTORING_BROKEN,line 48: cannot find symbol,BlobMetadataToObject.apply
+apis/atmos/src/main/java/org/jclouds/atmos/blobstore/functions/BlobStoreListOptionsToListOptions.java,ok,ok,OK,,BlobStoreListOptionsToListOptions.apply
+apis/atmos/src/main/java/org/jclouds/atmos/blobstore/functions/BlobToContentMetadata.java,ok,FAIL,REFACTORING_BROKEN,line 31: incompatible types: org.jclouds.io.MutableContentMetadata cannot be converted to org.jclouds.atmos.domain.MutableContentMetadata,BlobToContentMetadata.apply
+apis/atmos/src/main/java/org/jclouds/atmos/blobstore/functions/BlobToObject.java,ok,ok,OK,,BlobToObject.apply
+apis/atmos/src/main/java/org/jclouds/atmos/domain/internal/BoundedLinkedHashSet.java,ok,ok,OK,,BoundedLinkedHashSet.hashCode;BoundedLinkedHashSet.equals
+apis/atmos/src/main/java/org/jclouds/atmos/functions/AtmosObjectName.java,ok,ok,OK,,AtmosObjectName.apply
+apis/chef/src/main/java/org/jclouds/chef/binders/BindGenerateKeyForClientToJsonPayload.java,ok,ok,OK,,BindGenerateKeyForClientToJsonPayload.bindToRequest
+apis/chef/src/main/java/org/jclouds/chef/util/CollectionUtils.java,ok,FAIL,REFACTORING_BROKEN,line 55: method <T>copyOfOrEmpty(Set<T>) is already defined in class CollectionUtils,CollectionUtils.copyOfOrEmpty
+apis/cloudstack/src/main/java/org/jclouds/cloudstack/options/AddClusterOptions.java,ok,ok,OK,,AddClusterOptions.podId
+apis/cloudwatch/src/main/java/org/jclouds/cloudwatch/binders/AlarmNamesBinder.java,ok,ok,OK,,AlarmNamesBinder.bindToRequest
+apis/ec2/src/main/java/org/jclouds/ec2/options/internal/BaseEC2RequestOptions.java,ok,ok,OK,,BaseEC2RequestOptions.indexFormValuesWithPrefix
+apis/glacier/src/main/java/org/jclouds/glacier/binders/BindContentRangeToHeaders.java,ok,ok,OK,,BindContentRangeToHeaders.bindToRequest
+apis/openstack-trove/src/main/java/org/jclouds/openstack/trove/v1/binders/BindCreateDatabaseToJson.java,ok,ok,OK,,BindCreateDatabaseToJson.bindToRequest
+apis/openstack-trove/src/main/java/org/jclouds/openstack/trove/v1/binders/BindGrantUserToJson.java,ok,ok,OK,,BindGrantUserToJson.bindToRequest
+apis/route53/src/main/java/org/jclouds/route53/binders/BindChangeBatch.java,ok,ok,OK,,BindChangeBatch.bindToRequest
+apis/route53/src/main/java/org/jclouds/route53/domain/ChangeBatch.java,ok,ok,OK,,ChangeBatch.ctor
+apis/s3/src/main/java/org/jclouds/s3/binders/BindS3ObjectMetadataToRequest.java,ok,FAIL,REFACTORING_BROKEN,line 45: cannot find symbol,BindS3ObjectMetadataToRequest.bindToRequest
+apis/s3/src/main/java/org/jclouds/s3/domain/CanonicalUser.java,ok,ok,OK,,CanonicalUser.hashCode;CanonicalUser.equals
+apis/s3/src/main/java/org/jclouds/s3/filters/AwsHostNameUtils.java,ok,ok,OK,,AwsHostNameUtils.parseRegionName;AwsHostNameUtils.parseStandardRegionName;AwsHostNameUtils.parseServiceName
+apis/s3/src/main/java/org/jclouds/s3/functions/AssignCorrectHostnameForBucket.java,ok,ok,OK,,AssignCorrectHostnameForBucket.apply
+apis/sqs/src/main/java/org/jclouds/sqs/binders/BindChangeMessageVisibilityBatchRequestEntryToIndexedFormParams.java,ok,ok,OK,,BindChangeMessageVisibilityBatchRequestEntryToIndexedFormParams.bindToRequest
+core/src/main/java/org/jclouds/apis/ApiPredicates.java,ok,ok,OK,,ApiPredicates.viewableAs
+core/src/main/java/org/jclouds/collect/AbstractMapEntry.java,ok,ok,OK,,AbstractMapEntry.equals
+core/src/main/java/org/jclouds/http/handlers/CloseContentAndSetExceptionErrorHandler.java,ok,ok,OK,,CloseContentAndSetExceptionErrorHandler.handleError
+core/src/main/java/org/jclouds/http/options/BaseHttpRequestOptions.java,ok,ok,OK,,BaseHttpRequestOptions.getFirstQueryOrNull;BaseHttpRequestOptions.getFirstFormOrNull;BaseHttpRequestOptions.getFirstHeaderOrNull;BaseHttpRequestOptions.hashCode;BaseHttpRequestOptions.equals
+core/src/main/java/org/jclouds/io/payloads/BaseImmutableContentMetadata.java,ok,ok,OK,,BaseImmutableContentMetadata.equals
+core/src/main/java/org/jclouds/io/payloads/BaseMutableContentMetadata.java,ok,FAIL,REFACTORING_BROKEN,line 75: method setContentMD5(HashCode) is already defined in class BaseMutableContentMetadata,BaseMutableContentMetadata.setContentMD5
+core/src/main/java/org/jclouds/io/payloads/BasePayload.java,ok,ok,OK,,BasePayload.hashCode;BasePayload.equals
+core/src/main/java/org/jclouds/logging/BaseLogger.java,ok,ok,OK,,BaseLogger.trace;BaseLogger.debug;BaseLogger.info;BaseLogger.warn;BaseLogger.warn_1;BaseLogger.error;BaseLogger.error_1
+core/src/main/java/org/jclouds/osgi/ApiRegistry.java,ok,ok,OK,,
+core/src/main/java/org/jclouds/predicates/validators/AllLowerCaseValidator.java,ok,ok,OK,,AllLowerCaseValidator.validate
+core/src/main/java/org/jclouds/rest/binders/BindException.java,ok,ok,OK,,BindException.getMessage
+core/src/main/java/org/jclouds/rest/binders/BindToJsonPayload.java,ok,ok,OK,,
+core/src/main/java/org/jclouds/rest/binders/BindToJsonPayloadWrappedWith.java,ok,ok,OK,,BindToJsonPayloadWrappedWith.bindToRequest
+core/src/main/java/org/jclouds/rest/binders/BindToStringPayload.java,ok,ok,OK,,
+loadbalancer/src/main/java/org/jclouds/loadbalancer/config/BindLoadBalancerStrategiesByClass.java,ok,ok,OK,,
+providers/azureblob/src/main/java/org/jclouds/azure/storage/config/AzureStorageOAuthConfigFactory.java,ok,ok,OK,,AzureStorageOAuthConfigFactory.forRequest
+providers/google-cloud-storage/src/main/java/org/jclouds/googlecloudstorage/blobstore/functions/BlobMetadataToObjectTemplate.java,ok,ok,OK,,BlobMetadataToObjectTemplate.apply
+providers/google-cloud-storage/src/main/java/org/jclouds/googlecloudstorage/blobstore/functions/BlobStoreListContainerOptionsToListObjectOptions.java,ok,ok,OK,,BlobStoreListContainerOptionsToListObjectOptions.apply
+providers/ultradns-ws/src/main/java/org/jclouds/ultradns/ws/xml/AttributeHandler.java,ok,ok,OK,,AttributeHandler.startElement
+scriptbuilder/src/main/java/org/jclouds/scriptbuilder/functionloader/osgi/Activator.java,FAIL,FAIL,ENVIRONMENT,line 20: package org.osgi.framework does not exist,Activator.stop

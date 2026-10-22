@@ -272,7 +272,7 @@ def main(project):
                      "FAIL" if rel in compiled_failed_original_classes else ("ok" if rel in orig_files else "new file"),
                      "FAIL" if rel in compiled_failed_refactored_classes else "ok",
                      status, error, ";".join(methods_by_file.get(rel, []))])
-    status_csv = os.path.join(MODULE, "reports", project, "compile_status.csv")
+    status_csv = os.path.join(MODULE, "reports", project, "refagent", "compile_status.csv")
     write_status_csv(status_csv, rows)
 
     before = len(manifest["methods"])
